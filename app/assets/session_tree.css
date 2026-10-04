@@ -5,3 +5,24 @@
 .tree-filter{display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:11px}.tree-filter label{display:flex;gap:10px;align-items:center}.tree-filter input{width:240px;padding:6px 10px;font-size:12px}.tree-filter button{padding:6px 10px;font-size:11px}
 
 .record-shot{display:block;max-width:110px;text-decoration:none!important}.record-shot small{font-size:9px;line-height:1.25;margin-top:3px}.type-evidence{display:flex;align-items:center;gap:12px;font-size:11px;margin:12px 0}.type-evidence img{width:180px;height:102px;object-fit:contain;object-position:top;border:1px solid var(--line);border-radius:4px}.type-evidence small{display:block;margin:6px 0;color:var(--muted)}
+
+/* Shared result slots keep each task in the same position on every provider. */
+.result-placeholder{display:grid;place-items:center;width:110px;height:62px;border:1px dashed #b5c2cb;border-radius:3px;font-size:22px;line-height:1}
+.result-placeholder.missing-expected{color:#996116;background:#fff6dc;border-color:#d6a23f}
+.result-placeholder.missing-expected.outcome-failed{color:#b3253c;background:#fff0f2;border-color:#d25167}
+.result-placeholder.missing-irrelevant{color:#8996a0;border-color:#d3dbe1;background:repeating-linear-gradient(135deg,#f5f7f9,#f5f7f9 5px,#eaf0f3 5px,#eaf0f3 6px);box-shadow:none}
+.result-placeholder[hidden],.record-shot img[hidden]{display:none}
+.record-tree[data-tree="providers"]{--result-width:60px}
+.record-tree[data-tree="providers"]>.record-grid,.record-tree[data-tree="providers"]>.record-node>.record-grid{grid-template-columns:minmax(150px,1fr) 85px 70px 38px 50px minmax(calc(var(--result-cols)*var(--result-width) + (var(--result-cols) - 1)*6px),3fr);min-width:calc(457px + var(--result-cols)*66px);gap:10px;padding:8px 10px}
+.record-tree[data-tree="providers"]>.record-node>summary{min-height:60px}
+.record-tree[data-tree="providers"]>.record-grid>:first-child,.record-tree[data-tree="providers"]>.record-node>.record-grid>:first-child{position:sticky;left:0;z-index:1;background:inherit}
+.record-images.aligned-results{display:grid;grid-template-columns:repeat(var(--result-cols),minmax(0,1fr));gap:6px;max-height:none;overflow:visible}
+.aligned-results .record-shot{max-width:none;min-width:0}
+.aligned-results img,.aligned-results .result-placeholder{display:grid;width:100%;height:auto;aspect-ratio:16/10;box-sizing:border-box}
+.aligned-results [hidden]{display:none}
+@media(max-width:1100px){.record-tree[data-tree="providers"]{--result-width:44px}.record-tree[data-tree="providers"]>.record-grid,.record-tree[data-tree="providers"]>.record-node>.record-grid{grid-template-columns:140px 70px 60px 32px 46px minmax(calc(var(--result-cols)*var(--result-width) + (var(--result-cols) - 1)*6px),3fr);min-width:calc(394px + var(--result-cols)*50px);gap:6px;padding:8px}.record-tree[data-tree="providers"] .record-identity{gap:5px}.aligned-results .result-placeholder{font-size:17px}}
+
+.record-tree[data-tree="providers"]>.tree-columns{font-size:9px;letter-spacing:0}
+.record-tree[data-tree="providers"]>.record-node>.record-grid>:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aligned-results img.outcome-attention{border-color:#e57c84;box-shadow:0 0 5px #e6596740}
+.result-placeholder.missing-expected.outcome-success{border-color:#d6a23f;box-shadow:none}

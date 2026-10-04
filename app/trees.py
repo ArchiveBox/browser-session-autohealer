@@ -37,8 +37,47 @@ def node(kind, identifier, cells, url=None, **kwargs):
 
 def evidence(tiles):
     return cell(images=[{'url': t['image'], 'tone': t['tone'], 'label': t['check']['name'], 'href': t['url'],
-                        'at': health.time_label(t['at'])}
-                        for t in tiles if t['image']])
+                        'at': health.time_label(t['at']), 'missing': 'expected',
+                        'symbol': '!' if t['result'] else '◷'} for t in tiles])
+
+
+def provider_table(providers):
+    # One shared ordering across providers; script revisions aren't new columns.
+    checks = list(Check.query.join('account__persona', 'account__site', 'provider')
+        .order_by('mode', 'account__site__domain', 'name', 'account__id', 'id'))
+    objects = {check.id: check for check in checks}
+    groups = health.grouped_checks(health.check_rows(checks))
+    columns = [{'key': min(group['member_ids']), 'label': group['check']['name']}
+               for group in groups]
+    rows = []
+    for provider in providers:
+        shots = []
+        for column, group in zip(columns, groups, strict=True):
+            tile = next((t for t in group['provider_results']
+                         if t['check']['provider']['id'] == provider.id), None)
+            check = objects[(tile or group)['check']['id']]
+            expected = bool(tile and (tile['result'] or (
+                check.mode == 'check' and check.enabled and provider.enabled)))
+            label = f'{check.name} · {check.account.site.domain} · {check.account.persona.name}'
+            missing_label = ('No screenshot' if tile and tile['result'] else 'Not run') if expected else (
+                'Not configured for this provider' if not tile else
+                'Fix not triggered' if check.mode == 'fix' else 'Paused')
+            shots.append({**column, 'label': label, 'check_id': check.id if tile else None,
+                'url': tile['image'] if tile else '', 'href': tile['url'] if tile else '',
+                'tone': tile['tone'] if tile and tile['result'] else 'attention' if expected else 'neutral',
+                'missing': 'expected' if expected else 'irrelevant',
+                'missing_label': missing_label,
+                'symbol': '!' if expected and tile['result'] and tile['result'].status != 'running'
+                          else '◷' if expected else '—'})
+        rows.append(node('providers', provider.id, [
+            cell(provider.name, color=provider.display_color, icon='▱', href=f'/edit/provider?id={provider.id}'),
+            cell(provider.kind), cell('Enabled' if provider.enabled else 'Disabled', badge=True,
+                                     tone='success' if provider.enabled else 'neutral'),
+            cell(Run.query.filter(provider=provider, status__in=health.ACTIVE).count()),
+            cell(Run.query.filter(provider=provider).count()), cell(images=shots, aligned=True)],
+            links=[('Settings', f'/edit/provider?id={provider.id}')]))
+    return {**table('providers', ['Provider', 'Runtime', 'Status', 'Active', 'Sessions', 'Last results'], rows),
+            'tree_result_columns': columns}
 
 
 def tokens(value):
@@ -199,13 +238,7 @@ def root_table(kind, params):
             row['opened'] = str(row['id']) == params.get('record')
     elif kind == 'providers':
         query = Provider.query.order_by('name')
-        result = table(kind, ['Provider', 'Runtime', 'Status', 'Active', 'Sessions', 'Last results'], [
-            node(kind, p.id, [cell(p.name, color=p.display_color, icon='▱', href=f'/edit/provider?id={p.id}'), cell(p.kind),
-                cell('Enabled' if p.enabled else 'Disabled', badge=True, tone='success' if p.enabled else 'neutral'),
-                cell(Run.query.filter(provider=p, status__in=health.ACTIVE).count()),
-                cell(Run.query.filter(provider=p).count()),
-                evidence(health.check_rows(Check.query.filter(provider=p).join('account', 'provider')))], links=[('Settings', f'/edit/provider?id={p.id}')])
-            for p in query[offset:offset+100]])
+        result = provider_table(query[offset:offset+100])
     elif kind == 'types':
         previous_ids = list(CheckType.query.exclude(previous=None).values_list('previous', flat=True))
         query = CheckType.query.exclude(id__in=previous_ids).order_by('-created_at')
