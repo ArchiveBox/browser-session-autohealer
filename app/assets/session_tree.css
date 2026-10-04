@@ -26,3 +26,8 @@
 .record-tree[data-tree="providers"]>.record-node>.record-grid>:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .aligned-results img.outcome-attention{border-color:#e57c84;box-shadow:0 0 5px #e6596740}
 .result-placeholder.missing-expected.outcome-success{border-color:#d6a23f;box-shadow:none}
+
+.result-picture{display:block;position:relative}
+.result-favicon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid #dce3e8;box-shadow:0 1px 4px #172b3a33;pointer-events:none}
+.record-images .result-favicon img{display:block;width:16px;height:16px;aspect-ratio:1;border:0;border-radius:0;box-shadow:none;background:transparent;object-fit:contain}
+.result-favicon[hidden],.result-picture:has(>img[hidden])>.result-favicon{display:none}

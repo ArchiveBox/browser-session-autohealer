@@ -3,5 +3,8 @@
 {% set description = shot.get('missing_label', 'No screenshot') %}
 {% set title = shot.label if shot.url else shot.label+' · '+description %}
 <a class="record-shot" {% if shot.get('href') %}href="{{shot.href}}"{% else %}tabindex="0"{% endif %} title="{{title}}" aria-label="{{title}}" {% if shot.get('key') %}data-result-type="{{shot.key}}"{% endif %}>
+<span class="result-picture">
 {% if shot.url %}<img data-result-image src="{{shot.url}}" class="outcome-{{shot.tone}}" alt="{{shot.label}}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">{% endif %}<span class="result-placeholder missing-{{missing}} outcome-{{shot.tone}}" data-missing="{{missing}}" role="img" aria-label="{{shot.label}} · {{description}}" {% if shot.url %}hidden{% endif %}>{{symbol}}</span>
+{% if shot.url and shot.get('domain') %}<span class="result-favicon" aria-hidden="true"><img src="https://www.google.com/s2/favicons?domain={{shot.domain|urlencode}}&amp;sz=32" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.hidden=true"></span>{% endif %}
+</span>
 {% if shot.get('at') %}<small>{{shot.at}}</small>{% endif %}</a>

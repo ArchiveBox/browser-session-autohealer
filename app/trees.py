@@ -1,4 +1,6 @@
 """The same expandable record table, projected from each navigation root."""
+from urllib.parse import urlsplit
+
 from plain.http import NotFoundError404
 
 from .core import browser_settings, health, usage
@@ -37,6 +39,7 @@ def node(kind, identifier, cells, url=None, **kwargs):
 
 def evidence(tiles):
     return cell(images=[{'url': t['image'], 'tone': t['tone'], 'label': t['check']['name'], 'href': t['url'],
+                        'domain': urlsplit(t['check']['url']).hostname,
                         'at': health.time_label(t['at']), 'missing': 'expected',
                         'symbol': '!' if t['result'] else '◷'} for t in tiles])
 
@@ -62,7 +65,7 @@ def provider_table(providers):
             missing_label = ('No screenshot' if tile and tile['result'] else 'Not run') if expected else (
                 'Not configured for this provider' if not tile else
                 'Fix not triggered' if check.mode == 'fix' else 'Paused')
-            shots.append({**column, 'label': label, 'check_id': check.id if tile else None,
+            shots.append({**column, 'label': label, 'domain': check.account.site.domain, 'check_id': check.id if tile else None,
                 'url': tile['image'] if tile else '', 'href': tile['url'] if tile else '',
                 'tone': tile['tone'] if tile and tile['result'] else 'attention' if expected else 'neutral',
                 'missing': 'expected' if expected else 'irrelevant',
@@ -99,6 +102,7 @@ def type_evidence(revisions):
         image = health.result_image(result)[0]
         if image:
             found[key] = {'url': image, 'tone': 'success' if result.passed else 'failed',
+                'domain': next((p['domain'] for p in result.run.plan if p['id'] == result.check_id), ''),
                 'label': f'Session #{result.run.id}', 'href': f'/runs/{result.run.id}/checks/{result.check_id}',
                 'at': health.time_label(result.ended_at), 'revision': step.check_type.id}
     return {r.id: found.get((r.check_id, r.digest)) for r in revisions}
@@ -165,7 +169,7 @@ def session_table(runs, selected='', check=''):
             cell(health.time_label(r.finished_at) if r.finished_at else '—', session['duration']),
             tokens(usage.for_run(r)),
             cell(images=[{'url': c['image'], 'tone': 'success' if c['result'].passed else 'failed',
-                          'label': c['domain'], 'href': c['url'], 'at': health.time_label(c['result'].ended_at)} for c in session['checks'] if c['image']])],
+                          'label': c['domain'], 'domain': c['domain'], 'href': c['url'], 'at': health.time_label(c['result'].ended_at)} for c in session['checks'] if c['image']])],
             url=f'/runs/{r.id}/tree' + (f'?check={check}' if str(r.id) == selected and check else ''),
             opened=str(r.id) == selected))
     return table('runs', ['Session / persona', 'Provider', 'Started by', 'Changes', 'Started', 'Ended', 'Tokens', 'Screenshots'], rows)
@@ -185,6 +189,7 @@ def executions_table(checks, observations=None):
             cell(health.time_label(o.ended_at)),
             tokens(usage.for_run(o.run, o.check_id)),
             cell(images=[{'url': image, 'tone': tone, 'label': names[o.check_id],
+                         'domain': next((p['domain'] for p in o.run.plan if p['id'] == o.check_id), ''),
                          'href': f'/runs/{o.run.id}/checks/{o.check_id}', 'at': health.time_label(o.ended_at)}] if image else [])],
             url=f'/runs/{o.run.id}/checks/{o.check_id}/activity'))
     return table('runs', ['Session', 'Provider', 'Status', 'Started', 'Ended', 'Tokens', 'Screenshot'], rows)
@@ -267,6 +272,7 @@ def root_table(kind, params):
                     cell(health.time_label(o.ended_at) if o else '—'),
                     tokens(usage.for_run(run, agent['check_id'])),
                     cell(images=[{'url': image, 'tone': 'success' if o.passed else 'failed', 'label': agent['title'],
+                                 'domain': next((p['domain'] for p in run.plan if p['id'] == o.check_id), ''),
                                  'href': f'/runs/{run.id}/checks/{o.check_id}', 'at': health.time_label(o.ended_at)}] if image else [])],
                     url=f"/runs/{run.id}/checks/{agent['check_id']}/activity"))
         result = table(kind, ['AI session', 'Persona / provider', 'Status', 'Model', 'Started', 'Ended', 'Tokens', 'Screenshot'], rows)
