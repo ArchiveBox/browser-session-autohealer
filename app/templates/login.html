@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="py-12 px-4 flex items-center justify-center">
+    <div class="max-w-md w-full mx-auto">
+        <div class="bg-white rounded-xl shadow-lg/5 border border-stone-100 p-8">
+            <form action="" method="post" class="flex flex-col">
+                <h1 class="text-3xl font-semibold text-stone-900 text-center">Welcome back</h1>
+
+                {% for error in form.non_field_errors %}
+                <div class="text-red-500 text-center border-red-500 border rounded-md p-2 mt-6">{{ error }}</div>
+                {% endfor %}
+
+                <label class="text-sm text-stone-800 mt-6" for="{{ form.email.html_id }}">Email</label>
+                <input
+                    class="border border-stone-200 rounded-md text-sm px-3 py-2 mt-1"
+                    type="email"
+                    name="{{ form.email.html_name }}"
+                    id="{{ form.email.html_id }}"
+                    value="{{ form.email.value() or '' }}"
+                    autocomplete="email"
+                    autofocus
+                    required>
+
+                <label class="text-sm text-stone-800 mt-4" for="{{ form.password.html_id }}">Password</label>
+                <input
+                    class="border border-stone-200 rounded-md text-sm px-3 py-2 mt-1"
+                    type="password"
+                    name="{{ form.password.html_name }}"
+                    id="{{ form.password.html_id }}"
+                    autocomplete="current-password"
+                    required>
+
+                <button class="primary cursor-pointer rounded-lg text-white px-4 py-2 text-sm transition-colors mt-6" type="submit">Log in</button>
+
+
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+*
+!Dockerfile.browser
+!app/
+!app/core/
+!app/core/chrome_cpu_guard.c

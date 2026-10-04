@@ -1,0 +1,13 @@
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.278
+FROM debian:trixie-slim AS cpu-guard
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev
+COPY app/core/chrome_cpu_guard.c /src/chrome_cpu_guard.c
+RUN cc -shared -fPIC -O2 -Wall -Wextra -Werror /src/chrome_cpu_guard.c -ldl -o /chrome_cpu_guard.so
+
+FROM ${ABX_DL_IMAGE}
+# Same browser binary, flags, and chrome_utils.js as abx-dl, plus the harness and CPU guard.
+COPY --from=cpu-guard /chrome_cpu_guard.so /opt/account-checker/lib/chrome_cpu_guard.so
+ENV ACCOUNT_CHECKER_CPU_GUARD=/opt/account-checker/lib/chrome_cpu_guard.so
+ENV UV_TOOL_DIR=/opt/account-checker/tools UV_TOOL_BIN_DIR=/opt/account-checker/bin
+RUN uv tool install --python /venv/bin/python browser-harness==0.1.13
+ENV PATH="/opt/account-checker/bin:${PATH}" BH_TELEMETRY=0 BH_TAB_MARKER=0 BU_AUTOSPAWN=""

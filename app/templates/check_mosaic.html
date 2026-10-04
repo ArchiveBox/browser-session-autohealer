@@ -1,0 +1,9 @@
+<div class="check-mosaic" data-check-mosaic aria-label="Latest evidence for every configured check">
+{% for tile in mosaic[:30] %}
+<a class="mosaic-tile outcome-{{tile.tone}}" href="{{persona_link|default(tile.url)}}" title="{{tile.check.name}} · {{tile.label}} · {{time_label(tile.at)}}">
+{% if tile.image %}<img loading="lazy" src="{{tile.image}}" alt="{{tile.check.name}} — {{tile.label}}" {{'data-final-evidence' if tile.image_label=='Final evidence' else 'data-last-frame'}}>{% else %}<span class="mosaic-empty">{{'◌' if tile.state=='checking' else '▧'}}<small>{{'Checking…' if tile.state=='checking' else 'No evidence yet'}}</small></span>{% endif %}
+<div class="mosaic-caption">{% if tile.running %}<span class="pulse-dot" title="A new check is running"></span>{% endif %}<span class="status-symbol">{{'✓' if tile.tone=='success' else '!' if tile.tone in ['failed','attention'] else '·'}}</span><span>{{tile.check.name}}{% if tile.image_label!='Final evidence' %}<small>{{tile.image_label}}</small>{% endif %}</span></div>
+</a>
+{% else %}<a class="mosaic-no-checks" href="{{persona_link|default('/')}}">▧<span>No access checks yet<small>Add a check to see what this browser can access.</small></span></a>{% endfor %}
+</div>
+{% if mosaic|length>30 %}<a class="mosaic-more" href="{{persona_link|default('/')}}">View all {{mosaic|length}} checks →</a>{% endif %}

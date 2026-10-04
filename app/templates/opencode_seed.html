@@ -1,0 +1,62 @@
+{# Adapted from ArchiveBox OpenCode agent.html; see opencode_proxy.LICENSE. #}
+            <script>
+                (() => {
+                    const workdir = {{ workdir|tojson }};
+                    const recentSessionId = {{ recent_session_id|tojson }};
+                    const storage = {
+                        get(key) {
+                            try { return localStorage.getItem(key); } catch { return null; }
+                        },
+                        set(key, value) {
+                            try { localStorage.setItem(key, value); } catch { /* Persistence is optional. */ }
+                        },
+                    };
+                    const readJSON = (key) => {
+                        try {
+                            const value = JSON.parse(storage.get(key) || "{}");
+                            return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+                        } catch { return {}; }
+                    };
+                    const merge = (left, right) => {
+                        if (!left || typeof left !== "object" || Array.isArray(left)) return right;
+                        const out = {...left};
+                        for (const [key, value] of Object.entries(right)) {
+                            out[key] = value && typeof value === "object" && !Array.isArray(value) ? merge(out[key], value) : value;
+                        }
+                        return out;
+                    };
+                    const seed = (key, value) => {
+                        storage.set(key, JSON.stringify(merge(readJSON(key), value)));
+                    };
+                    const page = {
+                        activeProject: workdir,
+                        activeWorkspace: workdir,
+                        gettingStartedDismissed: true,
+                        workspaceExpanded: {[workdir]: true},
+                    };
+                    if (recentSessionId) {
+                        page.lastProjectSession = {[workdir]: {directory: workdir, id: recentSessionId, at: Date.now()}};
+                    }
+                    seed("opencode.global.dat:layout.page", page);
+                    seed("opencode.global.dat:layout", {
+                        sidebar: {opened: true, width: 280},
+                        fileTree: {opened: true, width: 280, tab: "all"},
+                    });
+                    const serverKey = location.origin + {{ proxy_prefix|tojson }};
+                    const server = readJSON("opencode.global.dat:server");
+                    const projects = Array.isArray(server.projects?.[serverKey]) ? server.projects[serverKey] : [];
+                    if (!projects.some(project => project.worktree === workdir)) {
+                        projects.push({worktree: workdir, expanded: true});
+                    }
+                    seed("opencode.global.dat:server", {
+                        list: server.list || [],
+                        projects: {
+                            [serverKey]: projects,
+                        },
+                        lastProject: {
+                            [serverKey]: workdir,
+                        },
+                    });
+                    storage.set("opencode.settings.dat:defaultServerUrl", serverKey);
+                })();
+            </script>

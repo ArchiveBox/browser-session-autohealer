@@ -1,0 +1,9 @@
+<section class="browser-settings" aria-labelledby="browser-settings-title">
+<div class="section-heading"><div><h2 id="browser-settings-title">Browser settings</h2><p class="browser-settings-intro">Preferences and saved state that follow this persona. Each browser connection reports what it can keep consistent.</p></div><a class="btn" href="/edit/persona?id={{persona.id}}">Edit settings</a></div>
+<div class="browser-settings-grid">
+{% for group in browser_settings.groups %}
+<section class="panel settings-group"><div class="panel-head"><span class="settings-icon" aria-hidden="true">{{group.icon}}</span><h3>{{group.title}}</h3></div><dl>{% for row in group.rows %}<div class="setting-row"><dt>{{row.label}}</dt><dd><span class="setting-value">{{row.value}}</span><span class="setting-source">{{row.source}}</span><span class="setting-support {{row.tone}}">{{row.support}}</span><details class="setting-explanation"><summary>Connection details</summary><small>{{row.detail}}</small></details></dd></div>{% endfor %}</dl></section>
+{% endfor %}
+</div>
+{% if browser_settings.other_count %}<p class="browser-settings-footnote">{{browser_settings.other_count}} additional saved setting{{'s' if browser_settings.other_count!=1 else ''}} will be preserved when you edit. Unrecognized values are not displayed.</p>{% endif %}
+</section>

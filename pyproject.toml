@@ -1,0 +1,48 @@
+[project]
+name = "account-checker"
+version = "0.1.0"
+description = "Session Tender by ArchiveBox — browser personas and account access monitoring"
+requires-python = "~=3.14.0"
+dependencies = [
+  "plain",
+  "plain.postgres",
+  "plain.auth",
+  "plain.passwords",
+  "plain.sessions",
+  "plain.tailwind",
+  "plain.htmx",
+  "plain-assets",
+  "plain-templates",
+  "psycopg[binary]",
+  "httpx",
+  "cryptography",
+  "browser-cookie3",
+  "browser-harness==0.1.13",
+  "mcp>=1.26,<2",
+  "jsonschema>=4,<5",
+  "requests>=2.34.2",
+  "websockets>=15,<16",
+  "django>=5.2,<7",
+  "python-dotenv>=1,<2",
+]
+
+[dependency-groups]
+dev = [
+    "plain-dev",
+    "pytest",
+    "ruff",
+]
+
+[tool.plain.tailwind]
+version = "4.2.1"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+"app/core/opencode_proxy.py" = ["SIM117"] # Preserve vendored upstream transport.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# These acceptance tests inspect the live database without test DB substitutions.
+addopts = "-p no:plain.postgres"

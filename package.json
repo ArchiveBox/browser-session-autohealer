@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@browserbasehq/stagehand": "3.7.3"
+  },
+  "overrides": {
+    "undici": "6.29.0",
+    "@fastify/busboy": "3.2.2"
+  }
+}

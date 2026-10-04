@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{ asset('browser.css') }}">
+<div class="breadcrumb"><a href="/personas/{{run.persona.id}}">← {{run.persona.name}}</a></div>
+<div class="heading"><div><div class="eyebrow">{{run.provider.name}}</div><h1>Your browser</h1><p class="sub">Session limit: 25 minutes.</p></div><div class="actions"><a class="btn" href="/runs/{{run.id}}">Check results</a><button id="close-browser">Close browser</button></div></div>
+<div id="browser-app" data-run="{{run.id}}" data-ready="{{'true' if run.runtime.get('interactive_ready') else 'false'}}" data-target="{{selected}}" data-width="{{run.runtime.settings.get('viewport',{}).get('width',1440)}}" data-height="{{run.runtime.settings.get('viewport',{}).get('height',1000)}}">
+<div class="panel"><div class="panel-head"><span id="browser-status" role="status">{{'Closed' if run.checked_in_at else 'Ready to explore' if run.runtime.get('interactive_ready') else 'Checking before saving…' if run.runtime.get('interaction_ended_at') else 'Opening browser…'}}</span><a href="/agents">Agent conversations ↗</a></div>
+{% if run.checked_in_at %}<div class="empty">This browser has closed. <a href="/runs/{{run.id}}">See its results and screenshots</a>.</div>
+{% elif run.status in ['queued','starting'] %}<div class="empty">Opening {{run.provider.name}}… The live browser will appear automatically.</div>
+{% else %}<div class="browser-tabs">{% for tab in run.runtime.get('tabs',[]) %}<button data-target="{{tab.targetId}}">{{tab.name}}</button>{% endfor %}</div>
+{% if live_url %}<iframe id="remote-browser" src="{{live_url}}" title="Interactive {{run.provider.name}} browser" referrerpolicy="no-referrer"></iframe>
+{% else %}<div class="browser-controls"><input id="browser-text" type="password" autocomplete="off" placeholder="Text to type into the focused field" aria-label="Text to type"><button id="send-text">Type text</button>{% for key in ['Enter','Tab','Backspace','Escape','ArrowUp','ArrowDown'] %}<button data-key="{{key}}">{{key}}</button>{% endfor %}</div><div class="browser-canvas"><img id="browser-frame" src="/evidence/{{run.id}}/live.jpg" alt="Live browser: click to interact and scroll to read" draggable="false"></div>{% endif %}
+{% endif %}</div></div>
+<section class="panel run-agent-panel"><div class="panel-head"><h2>Talk to the agents in OpenCode</h2><a href="/agents">All conversations</a></div><div class="panel-body">{% include 'agent_activity.html' %}</div></section>
+<script src="{{ asset('browser.js') }}" defer></script>
+{% endblock %}

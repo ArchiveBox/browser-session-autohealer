@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}{% htmxfragment 'persona-status' %}
+<div class="persona-view" {% if active %}hx-get hx-trigger="every 3s"{% endif %}>
+<div class="heading"><div><div class="eyebrow">Browser persona</div><h1>{{persona.name}}</h1></div><div class="actions"><a href="/personas/{{persona.id}}/lineage" class="btn">⑂ Lineage</a><a href="/edit/persona?id={{persona.id}}" class="btn">Settings</a></div></div>
+<div class="persona-outline"><span><strong>{{credential_inventory.counts.all}}</strong> sites saved</span><span><strong>{{check_summary.passed}} / {{check_summary.total}}</strong> checks passed</span>{% if check_summary.failed %}<span class="failed-text"><strong>{{check_summary.failed}}</strong> failed</span>{% endif %}<div class="outline-links"><a href="#browser-settings-title">Browser settings ↓</a><a href="#access-history">Check history ↓</a></div></div>
+{% include 'credentials.html' %}
+{% for run in retained_versions %}<div class="note">Access checks passed, but this browser session reported a problem. Your previous saved browser data remains in use. <a href="/runs/{{run.id}}">Review the result →</a></div>{% endfor %}
+{% include 'browser_settings.html' %}
+<div class="panel" id="access-history" style="margin-top:28px"><div class="panel-head"><h2>Check history</h2><span class="muted">Most recent checks · times in your local timezone</span></div>
+{% for event in history %}<a class="history-event" href="/runs/{{event.run.id}}"><div class="history-preview">{% if event.thumbnail %}<img loading="lazy" alt="{{event.site.domain}} at this check" src="/evidence/{{event.run.id}}/{{event.thumbnail.evidence.screenshot}}">{% else %}<span>—</span>{% endif %}</div><div><div class="actions"><span class="badge {{event.tone}}">{{event.label}}</span><strong>{{event.site.domain}}</strong></div><p>{{event.reason}}</p><small>{{time_label(event.at)}} · {{event.run.provider.name}}</small></div><span class="muted">View result →</span></a>{% else %}<div class="empty">Your first check will appear here with screenshots and findings.</div>{% endfor %}</div>
+
+</div>{% endhtmxfragment %}{% endblock %}

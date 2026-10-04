@@ -1,0 +1,1 @@
+{% if agent %}<div class="conversation-toolbar"><a href="{{agent.frame_url}}" target="_blank">↗ Fullscreen</a></div>{% include 'opencode_seed.html' %}<iframe src="{{agent.frame_url}}" title="OpenCode conversation" class="opencode-frame" allow="clipboard-read; clipboard-write"></iframe>{% endif %}

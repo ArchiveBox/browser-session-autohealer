@@ -1,0 +1,12 @@
+<div class="agent-session-list">
+{% for session in sessions %}
+<article class="agent-session">
+  <div class="agent-session-heading"><strong>{{session.title}}</strong><span class="badge {{'running' if session.status == 'running' else 'failed' if session.status == 'interrupted' else ''}}">{{session.status_label}}</span></div>
+  <p class="agent-purpose">{{access_summary(session.observation.state) if session.observation else "Checking access…" if session.status == "running" else session.status_label}}</p>
+  <div class="agent-session-footer"><span class="muted">{{time_label(session.created_at)}}</span><a class="btn" href="{{session.url}}">Open conversation →</a></div>
+  {% if session.programs %}<details class="agent-steps"><summary>Technical details</summary><p>{{session.activity}} · {{session.model}}</p><ol>{% for program in session.programs %}<li><span class="agent-step-result {{'error' if program.exit_code else ''}}">{{'!' if program.exit_code else '✓'}}</span><span>{{program.purpose}}{% if program.exit_code %}<small>Program exited with code {{program.exit_code}}</small>{% endif %}</span></li>{% endfor %}</ol></details>{% endif %}
+</article>
+{% else %}
+<p class="agent-empty">{{'The session will appear here when the agent starts.' if active|default(false) else 'No agent session was recorded for this check.'}}</p>
+{% endfor %}
+</div>

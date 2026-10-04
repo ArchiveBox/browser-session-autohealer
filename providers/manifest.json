@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "purpose": "Provider implementation status. Runtime behavior and capabilities are defined by the adapter registry in app/core/providers.py.",
+  "providers": [
+    {
+      "id": "local",
+      "name": "Local Chrome",
+      "status": "verified_local_docker",
+      "implemented": true,
+      "notes": "Uses the account-checker-browser image based on abx-dl, with abx-plugins chrome_utils.js and browser-harness. Each fork owns an isolated native profile."
+    },
+    {
+      "id": "browserbase",
+      "name": "Browserbase",
+      "status": "implemented_unverified",
+      "implemented": true,
+      "notes": "Lifecycle uses the Browserbase API and shared CDP driver. Portable cookies and web storage are implemented; native IndexedDB and OPFS transfer are unsupported. Live Browserbase verification is pending."
+    },
+    {
+      "id": "kernel",
+      "name": "Kernel",
+      "status": "deferred",
+      "implemented": false,
+      "notes": "Placeholder only. Add an adapter later; no current dependencies or capability claims."
+    },
+    {
+      "id": "browserless",
+      "name": "Browserless",
+      "status": "deferred",
+      "implemented": false,
+      "notes": "Placeholder only. Add an adapter later; no current dependencies or capability claims."
+    }
+  ]
+}
