@@ -9,7 +9,7 @@
 ### Keep all your bot browser sessions warm, logged-in, and clutter-free during scraping and crawling.
 
 [![Status: early alpha](https://img.shields.io/badge/status-early_alpha-aa1e55?style=flat-square)](#try-it)
-[![Local and Browserbase](https://img.shields.io/badge/browsers-Local_%2B_Browserbase-334155?style=flat-square)](#shared-personas-across-browser-providers)
+[![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#shared-personas-across-browser-providers)
 [![Built with ArchiveBox](https://img.shields.io/badge/ArchiveBox-ecosystem-aa1e55?style=flat-square)](https://github.com/ArchiveBox/ArchiveBox)
 [![Checks and recovery](https://img.shields.io/badge/tasks-checks_%2B_recovery-334155?style=flat-square)](#from-blocked-to-verified)
 
@@ -84,11 +84,11 @@ A **persona** is a saved browser identity: its site data, account sessions, and 
 ![Real horizontal lineage: Local and Browserbase sessions fork from the same persona and return successful checkpoints to the canonical track](docs/images/lineage-providers.png)
 
 - **Shared persona collection** for ArchiveBox, abx-dl, and other browser automation tools.
-- **Isolated browser copies** for parallel sessions on Local and Browserbase.
+- **Isolated browser copies** for parallel sessions on Local Chrome, Browserbase, Generic CDP, Kernel, Anchor Browser, Browserless.io, and ZenRows.
 - **A single current leader** updated by eligible successful sessions, with failed sessions excluded.
 - **Branch history** showing providers, task results, screenshots, and cookie additions or removals.
 - **Checkpoint comparisons** showing what changed, where it came from, and the associated evidence.
-- **Selective imports** for the sites you want to use, together with saved browser identity and preferences.
+- **Selective imports** for the sites you want to use, with browser preferences applied according to provider and CDP support.
 
 ## Try it
 
@@ -116,6 +116,6 @@ uv run plain accounts worker
 
 ---
 
-[Development](docs/development.md) · [Architecture](docs/architecture.md) · [Recovery](docs/login-recovery.md) · [Browser providers](docs/browserbase-support.md) · [Screenshot sources](docs/images/README.md)
+[Development](docs/development.md) · [Architecture](docs/architecture.md) · [Recovery](docs/login-recovery.md) · [Browser providers](docs/providers.md) · [Screenshot sources](docs/images/README.md)
 
 <sub>Screenshots captured from the running app on October 4, 2026. Details are in the <a href="docs/images/README.md">screenshot sources</a>.</sub>

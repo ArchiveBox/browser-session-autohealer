@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -47,7 +48,11 @@ def host_browser_invocation(action, run, **payload):
         "action": action,
         "work": str(work),
         "cdp": run.runtime.get("cdp"),
+        "browserContextId": run.runtime.get("browser_context_id"),
         "settings": run.runtime.get("settings", run.persona.config),
+        "appliedSettings": adapter(run.provider, kind=run.runtime.get("provider_kind")).driver_settings(
+            run.runtime.get("settings", run.persona.config)
+        ),
         **payload,
     }
     return command, document, env, work
@@ -68,6 +73,10 @@ def browser_command(action, run, **payload):
     if result.returncode:
         # Do not echo subprocess input, CDP bearer URLs, or cookie values.
         error = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "no diagnostic"
+        for key, value in os.environ.items():
+            if key.endswith(("_API_KEY", "_TOKEN")) and value:
+                error = error.replace(value, "[redacted]")
+        error = re.sub(r"wss?://\S+", "[browser endpoint]", error)
         raise RuntimeError(error[:400])
     return json.loads(result.stdout)
 
@@ -106,6 +115,18 @@ def watch_browser(run, target, state, *, capture=True):
 
 class CDPAdapter:
     """Settings shared by adapters that use this application's CDP driver."""
+
+    capabilities: ClassVar[dict] = {
+        "native": False, "cookies": True, "localStorage": True,
+        "sessionStorage": True, "indexedDB": False, "opfs": False, "screencast": True,
+    }
+
+    def native_path(self, run):
+        return None
+
+    def driver_settings(self, settings):
+        """Apply supported settings while retaining the full canonical document."""
+        return settings
 
     def browser_invocation(self, action, run, **payload):
         return host_browser_invocation(action, run, **payload)
@@ -459,7 +480,16 @@ class Browserbase(CDPAdapter):
         return None
 
 
-ADAPTERS = {"local": Local, "browserbase": Browserbase}
+from .provider_backends.anchor import Anchor
+from .provider_backends.browserless import Browserless
+from .provider_backends.cdp import GenericCDP
+from .provider_backends.kernel import Kernel
+from .provider_backends.zenrows import ZenRows
+
+ADAPTERS = {
+    "local": Local, "browserbase": Browserbase, "cdp": GenericCDP,
+    "kernel": Kernel, "anchor": Anchor, "browserless": Browserless, "zenrows": ZenRows,
+}
 
 
 def validate_provider_kind(kind):

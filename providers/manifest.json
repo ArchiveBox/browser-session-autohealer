@@ -1,34 +1,57 @@
 {
   "schema_version": 1,
-  "purpose": "Provider implementation status. Runtime behavior and capabilities are defined by the adapter registry in app/core/providers.py.",
+  "purpose": "Provider implementation and verification snapshot. Runtime choices and capabilities are defined by the adapter registry in app/core/providers.py and implementations in app/core/provider_backends/.",
+  "verification_as_of": "2026-10-04",
+  "verification_complete": false,
   "providers": [
     {
       "id": "local",
       "name": "Local Chrome",
-      "status": "verified_local_docker",
+      "status": "verified_existing",
       "implemented": true,
-      "notes": "Uses the account-checker-browser image based on abx-dl, with abx-plugins chrome_utils.js and browser-harness. Each fork owns an isolated native profile."
+      "notes": "Existing local app evidence. Each checkout owns an isolated native profile on the host or in Docker; stop waits for its browser process to exit."
     },
     {
       "id": "browserbase",
       "name": "Browserbase",
-      "status": "implemented_unverified",
+      "status": "verified_existing",
       "implemented": true,
-      "notes": "Lifecycle uses the Browserbase API and shared CDP driver. Portable cookies and web storage are implemented; native IndexedDB and OPFS transfer are unsupported. Live Browserbase verification is pending."
+      "notes": "Existing app evidence includes authenticated X access. Each checkout owns a fresh cloud session; stop requests release and confirms completion. Portable cookies and origin storage use shared CDP; native profile, IndexedDB and OPFS transfer are unsupported."
+    },
+    {
+      "id": "cdp",
+      "name": "Generic CDP",
+      "status": "verified_authenticated",
+      "implemented": true,
+      "notes": "Hacker News, LinkedIn and X passed with successful check-in. Real empty-context isolation tests passed. Each checkout owns a fresh persistent context on the existing endpoint; stop disposes only that context and never closes the borrowed browser. Native profile, IndexedDB and OPFS transfer are unsupported."
     },
     {
       "id": "kernel",
       "name": "Kernel",
-      "status": "deferred",
-      "implemented": false,
-      "notes": "Placeholder only. Add an adapter later; no current dependencies or capability claims."
+      "status": "verified_authenticated",
+      "implemented": true,
+      "notes": "Hacker News and X passed. LinkedIn email verification was observed on one checkout; automatic recovery and fresh verification then passed in a new checkout without submitting credentials. Each checkout owns a fresh cloud browser; stop confirms API deletion. Native platform and window fidelity are unsupported; native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-kernel.md."
+    },
+    {
+      "id": "anchor",
+      "name": "Anchor Browser",
+      "status": "partially_verified",
+      "implemented": true,
+      "notes": "Hacker News and X passed. LinkedIn access was confirmed, but its session was discarded after a corrected script error. Empty-browser reconnect, concurrent clients, portable state and confirmed termination passed. Each checkout owns a fresh cloud session; stop confirms completed status. The tested stealth browser retains provider values for browser version, pixel ratio, available screen height, memory and media preferences. Screenshot requests return JPEG bytes regardless of requested format; the app detects actual image MIME while retaining original bytes. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-anchor.md."
     },
     {
       "id": "browserless",
-      "name": "Browserless",
-      "status": "deferred",
-      "implemented": false,
-      "notes": "Placeholder only. Add an adapter later; no current dependencies or capability claims."
+      "name": "Browserless.io",
+      "status": "partially_verified",
+      "implemented": true,
+      "notes": "Hacker News and X passed. LinkedIn access was confirmed but its session was discarded for a visible cookie banner and unconfirmed termination. Shutdown confirmation was subsequently fixed and verified with isolated real browsers. Fresh reconnectable cloud sessions retain the same browser between CDP clients; stop closes the browser and confirms its endpoint is gone. Plan lifetime limits remain enforced. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-browserless-zenrows.md."
+    },
+    {
+      "id": "zenrows",
+      "name": "ZenRows",
+      "status": "partially_verified",
+      "implemented": true,
+      "notes": "Hacker News and X passed. LinkedIn requires email verification; recovery stopped without an email-code integration. One connection keeper preserves each checkout's fresh cloud browser across local CDP clients; stop confirms keeper exit. Provider-managed fingerprint fields omit unsupported overrides; canonical settings and unsupported origin fields remain saved. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-browserless-zenrows.md."
     }
   ]
 }

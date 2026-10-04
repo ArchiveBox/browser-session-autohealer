@@ -13,21 +13,33 @@ async function connect() {
 
 async function configure(page, settings, state) {
   const cdp = await page.createCDPSession();
-  if (settings.window) {
-    const {windowId}=await cdp.send('Browser.getWindowForTarget',{targetId:page.target()._targetId});
-    await cdp.send('Browser.setWindowBounds',{windowId,bounds:{width:settings.window.width,height:settings.window.height}});
+  const omitted = [];
+  async function apply(method, params) {
+    try { return await cdp.send(method, params); }
+    catch (error) {
+      if (!/not supported|not found|not implemented|invalid parameters|unknown method|not allowed|only supported/i.test(error.message)
+          || /session closed|target closed|connection closed/i.test(error.message)) throw error;
+      omitted.push({method, reason: 'The browser does not support this setting override.'});
+      return null;
+    }
   }
-  const viewport = settings.viewport || {width: 1440, height: 1000, deviceScaleFactor: 1};
-  await cdp.send('Emulation.setDeviceMetricsOverride', {...viewport, mobile: settings.mobile || false,
-    ...(settings.screen ? {screenWidth:settings.screen.width,screenHeight:settings.screen.height}: {})});
-  if (settings.timezone) await cdp.send('Emulation.setTimezoneOverride', {timezoneId: settings.timezone});
-  if (settings.locale) await cdp.send('Emulation.setLocaleOverride', {locale: settings.locale});
-  if (settings.userAgent) await cdp.send('Emulation.setUserAgentOverride', {userAgent: settings.userAgent, acceptLanguage: settings.acceptLanguage || settings.locale || 'en-US',
+  if (settings.window) {
+    const result=await apply('Browser.getWindowForTarget',{targetId:page.target()._targetId});
+    if (result) await apply('Browser.setWindowBounds',{windowId:result.windowId,bounds:{width:settings.window.width,height:settings.window.height}});
+  }
+  if (settings.viewport !== null) {
+    const viewport = settings.viewport || {width: 1440, height: 1000, deviceScaleFactor: 1};
+    await apply('Emulation.setDeviceMetricsOverride', {...viewport, mobile: settings.mobile || false,
+      ...(settings.screen ? {screenWidth:settings.screen.width,screenHeight:settings.screen.height}: {})});
+  }
+  if (settings.timezone) await apply('Emulation.setTimezoneOverride', {timezoneId: settings.timezone});
+  if (settings.locale) await apply('Emulation.setLocaleOverride', {locale: settings.locale});
+  if (settings.userAgent) await apply('Emulation.setUserAgentOverride', {userAgent: settings.userAgent, acceptLanguage: settings.acceptLanguage || settings.locale || 'en-US',
     ...(settings.platform?{platform:settings.platform}:{}), ...(settings.userAgentMetadata?{userAgentMetadata:settings.userAgentMetadata}:{})});
-  if (settings.hardwareConcurrency) await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:settings.hardwareConcurrency});
-  if (settings.maxTouchPoints !== undefined) await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:settings.maxTouchPoints>0,...(settings.maxTouchPoints?{maxTouchPoints:settings.maxTouchPoints}:{})});
-  if (settings.geolocation) await cdp.send('Emulation.setGeolocationOverride', settings.geolocation);
-  await cdp.send('Emulation.setEmulatedMedia', {features: [
+  if (settings.hardwareConcurrency) await apply('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:settings.hardwareConcurrency});
+  if (settings.maxTouchPoints !== undefined) await apply('Emulation.setTouchEmulationEnabled',{enabled:settings.maxTouchPoints>0,...(settings.maxTouchPoints?{maxTouchPoints:settings.maxTouchPoints}:{})});
+  if (settings.geolocation) await apply('Emulation.setGeolocationOverride', settings.geolocation);
+  await apply('Emulation.setEmulatedMedia', {features: [
     {name: 'prefers-color-scheme', value: settings.colorScheme || 'light'},
     {name: 'prefers-reduced-motion', value: settings.reducedMotion || 'no-preference'},
     {name: 'prefers-contrast', value: settings.contrast || 'no-preference'},
@@ -51,6 +63,7 @@ async function configure(page, settings, state) {
       sessionStorage.setItem('__account_checker_local_restored','1');
     }
   }, state.origins || []);
+  fs.writeFileSync(path.join(input.work, `settings-${page.target()._targetId}.json`), JSON.stringify({omitted}));
 }
 
 async function main() {
@@ -71,16 +84,34 @@ async function main() {
   }
   const browser = await connect();
   try {
-    if (input.action === 'capture') return await capture(browser, input.sites);
+    const browserCDP = await browser.target().createCDPSession();
+    if (input.action === 'create_context') {
+      const {browserContextId} = await browserCDP.send('Target.createBrowserContext', {disposeOnDetach: false});
+      return {cdp: browser.wsEndpoint(), browser_context_id: browserContextId};
+    }
+    if (input.action === 'dispose_context') {
+      if (!input.browserContextId) throw Error('No owned browser context');
+      await browserCDP.send('Target.disposeBrowserContext', {browserContextId: input.browserContextId});
+      const {browserContextIds} = await browserCDP.send('Target.getBrowserContexts');
+      if (browserContextIds.includes(input.browserContextId)) throw Error('Browser context did not close');
+      return {closed: true};
+    }
+    const context = input.browserContextId
+      ? browser.browserContexts().find(c => c.id === input.browserContextId)
+      : browser.defaultBrowserContext();
+    if (!context) throw Error('Owned browser context is unavailable');
+    const contextArgs = input.browserContextId ? {browserContextId: input.browserContextId} : {};
+    const findTarget = id => browser.targets().find(t => t._targetId === id && t.browserContext() === context);
+    if (input.action === 'capture') return await capture(browser, input.sites, input.browserContextId);
     if (input.action === 'environment') {
-      const target=browser.targets().find(t=>t._targetId===input.target);
+      const target=findTarget(input.target);
       if(!target) throw Error('Browser tab unavailable');
       return await environment(await target.page());
     }
     if (input.action === 'seed') {
       const cdp = await browser.target().createCDPSession();
       // Replacing cookies is correct only inside this newly isolated fork.
-      await cdp.send('Storage.clearCookies');
+      await cdp.send('Storage.clearCookies', contextArgs);
       const cookies = (input.state.cookies || []).map(c => {
         const out = {};
         for (const key of ['name','value','domain','path','secure','httpOnly','sameSite','expires','priority','sameParty','sourceScheme','sourcePort','partitionKey']) {
@@ -89,25 +120,25 @@ async function main() {
         if (c.hostOnly) { delete out.domain; out.url = `${c.secure ? 'https' : 'http'}://${c.domain.replace(/^\./,'')}${c.path || '/'}`; }
         return out;
       });
-      if (cookies.length) await cdp.send('Storage.setCookies', {cookies});
+      if (cookies.length) await cdp.send('Storage.setCookies', {cookies, ...contextArgs});
       return {cookies: cookies.length};
     }
     if (input.action === 'prepare') {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       return {targetId: page.target()._targetId};
     }
     if (input.action === 'navigate') {
-      const target = browser.targets().find(t => t._targetId === input.target);
+      const target = findTarget(input.target);
       if (!target) throw Error('Browser tab unavailable');
       await (await target.page()).goto(input.url, {waitUntil: 'domcontentloaded'});
       return {ok: true};
     }
     if (input.action === 'watch') {
-      const target = browser.targets().find(t => t._targetId === input.target);
+      const target = findTarget(input.target);
       if (!target) throw new Error('The check browser tab is no longer available');
       const page = await target.page();
       // Keep this connection alive: emulation and preload scripts belong to it.
-      await configure(page, input.settings, input.state);
+      await configure(page, input.appliedSettings || input.settings, input.state);
       const cdp = await page.createCDPSession();
       const live = path.join(input.work, 'live.jpg');
       let frames = 0, ending = false;
@@ -134,7 +165,7 @@ async function main() {
       return {frames};
     }
     if (input.action === 'control') {
-      const target=browser.targets().find(t=>t._targetId===input.target);
+      const target=findTarget(input.target);
       if (!target) throw Error('Browser tab unavailable');
       const page=await target.page(), cdp=await page.createCDPSession();
       if(input.operation==='select') {
@@ -159,24 +190,28 @@ async function main() {
     }
     if (input.action === 'export') {
       const cdp = await browser.target().createCDPSession();
-      const {cookies} = await cdp.send('Storage.getCookies');
+      const {cookies} = await cdp.send('Storage.getCookies', contextArgs);
       const origins = new Map((input.state.origins || []).map(o => [o.origin, o]));
-      for (const page of await browser.pages()) {
+      for (const page of await context.pages()) {
         if (!/^https?:/.test(page.url())) continue;
         const origin = await page.evaluate(() => {
           const session = {...sessionStorage};
           delete session.__account_checker_restored; delete session.__account_checker_local_restored;
           return {origin: location.origin, localStorage:{...localStorage},sessionStorage:session};
         });
-        origins.set(origin.origin, origin);
+        // A CDP-only provider cannot refresh every stored data type. Keep
+        // unsupported canonical fields instead of treating omission as deletion.
+        origins.set(origin.origin, {...origins.get(origin.origin), ...origin});
       }
       return {cookies:cookies.map(c => ({...c,hostOnly:!c.domain.startsWith('.')})),settings:input.settings,origins:[...origins.values()],siteScope:input.state.siteScope};
     }
     if (input.action === 'close') { await browser.close(); return {closed:true}; }
     if (input.action === 'screenshot') {
-      const pages = (await browser.pages()).filter(p => /^https?:/.test(p.url()));
-      if (!pages.length) throw new Error('No page is open');
-      await pages[pages.length-1].screenshot({path:input.screenshot});
+      const active = path.join(input.work, 'active-target');
+      const targetId = input.target || (fs.existsSync(active) ? fs.readFileSync(active, 'utf8') : null);
+      const page = (await context.pages()).find(p => p.target()._targetId === targetId);
+      if (!page) throw new Error('The check page is no longer available for a screenshot');
+      await page.screenshot({path:input.screenshot});
       return {screenshot:path.basename(input.screenshot)};
     }
     throw new Error('Unknown browser action');

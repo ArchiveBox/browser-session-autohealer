@@ -16,6 +16,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP, Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from app.core.images import screenshot_format
 from app.core.recovery import redaction
 
 args = argparse.ArgumentParser()
@@ -200,7 +201,8 @@ def view_screenshot(filename: str) -> Image:
         raise ValueError("Use a PNG inside this run's agent workspace")
     if not path.is_file():
         raise ValueError("Capture the screenshot with browser-harness first")
-    return Image(path=str(path))
+    data = path.read_bytes()
+    return Image(data=data, format=screenshot_format(data))
 
 
 if __name__ == "__main__":

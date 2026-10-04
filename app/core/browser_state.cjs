@@ -20,9 +20,10 @@ async function environment(page) {
 }
 const matches = (host, sites) => sites === null || sites.some(s => host.replace(/^\./,'') === s || host.replace(/^\./,'').endsWith('.'+s));
 function allowed(url, sites) {try {const u=new URL(url);return ['http:','https:'].includes(u.protocol)&&matches(u.hostname,sites)}catch{return false}}
-async function capture(browser, sites) {
+async function capture(browser, sites, browserContextId) {
   const cdp=await browser.target().createCDPSession();
-  const targets=browser.targets().filter(t=>t.type()==='page'&&allowed(t.url(),sites));
+  const targets=browser.targets().filter(t=>t.type()==='page'&&allowed(t.url(),sites)
+    && (!browserContextId || t.browserContext().id===browserContextId));
   if(!targets.length) throw Error('Open a selected site in the source browser before importing');
   const contexts=new Set();
   for(const target of targets) {

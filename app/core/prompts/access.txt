@@ -36,6 +36,9 @@ Report concrete conditions with pass/fail and evidence for each, plus the
 observed identity and final page URL. A passed verdict requires every requested
 condition to be proven. Uncertainty means human_required, passed=false.
 List every encountered blocker or execution failure in issues even if resolved.
+An ordinary page load or automatic authentication redirect that completes
+without requesting user action is not a blocker. Judge the settled page; do not
+report routine navigation as an issue.
 An issue prevents automatic leader promotion, but does not end your learning
 loop. Diagnose and correct program failures while retaining their evidence.
 At completion return the required structured result. Write the reason for a

@@ -283,9 +283,13 @@ class EvidenceView(AuthView):
             path = path.parent / "agent-workspace" / filename
         if not path.is_file():
             raise NotFoundError404()
+        from .core.images import screenshot_format
+
+        with path.open("rb") as image:
+            content_type = "image/" + screenshot_format(image.read(12))
         return FileResponse(
             path.open("rb"),
-            content_type="image/jpeg" if filename.endswith(".jpg") else "image/png",
+            content_type=content_type,
             headers={"Cache-Control": "no-store"},
         )
 

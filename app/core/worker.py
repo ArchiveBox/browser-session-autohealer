@@ -80,6 +80,7 @@ def execute(run):
     stopped = False
     current_check = None
     current_plan = None
+    current_target = None
     watchers = ExitStack()
     try:
         required = run.runtime["settings"].get(
@@ -104,6 +105,7 @@ def execute(run):
         targets = []
         for plan in run.plan:
             target = browser_command("prepare", run, state=state)
+            current_target = target["targetId"]
             targets.append(target)
             run.runtime.setdefault("tabs", []).append({**target, "name": plan["name"], "check_id": plan["id"]})
             run.update(fields=["runtime"])
@@ -124,12 +126,15 @@ def execute(run):
             run.update(fields=["runtime"])
         for plan, target in zip(run.plan, targets, strict=True):
             current_plan = plan
+            current_target = target["targetId"]
             current_check = services.start_check(run.id, plan)
             result, classification = inference.check_access(run, plan, target)
             for issue in result.get("issues", []):
                 services.record_issue(run.id, issue)
             services.observe(run.id, plan, result, classification, check_run=current_check)
             current_check = None
+            measured = browser_command("environment", run, target=target["targetId"])
+            (storage.data_root() / "runs" / str(run.id) / f"environment-final-{plan['id']}.json").write_text(json.dumps(measured))
         exported = browser_command("export", run, state=state)
         verify_cookie_preservation(run, state, exported)
     except Exception as exc:  # noqa: BLE001 - record every failed run and close its owned browser
@@ -139,6 +144,7 @@ def execute(run):
                 browser_command(
                     "screenshot",
                     run,
+                    target=current_target,
                     screenshot=str(storage.data_root() / "runs" / str(run.id) / "failure.png"),
                 )
             except Exception as screenshot_error:  # noqa: BLE001 - the failed browser may already be closed
