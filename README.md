@@ -6,7 +6,7 @@
 
 <sub>ARCHIVEBOX</sub>
 
-### Keep all your bot browser sessions warm, logged-in, and clutter-free during scraping and crawling.
+### Keep all your browser sessions logged-in and popup-free using AI to auto-heal common problems.
 
 [![Status: early alpha](https://img.shields.io/badge/status-early_alpha-aa1e55?style=flat-square)](#try-it)
 [![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#shared-personas-across-browser-providers)
@@ -17,14 +17,17 @@
 
 </div>
 
-<img width="607" height="357" alt="Screenshot 2026-10-05 at 1 17 36 PM" src="https://github.com/user-attachments/assets/6f275900-d768-49af-8fed-f103f52bd215" />
-
-
-![Session Tender showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
+<img width="100%" alt="Many browser providers all logged into accounts and able to access content." src="https://github.com/user-attachments/assets/6f275900-d768-49af-8fed-f103f52bd215" />
 
 ## Why browser sessions need maintenance
 
-A crawl can keep running long after a session expires, collecting login pages instead of the content you expected—even while the same account works in your everyday browser.
+Scraping at scale often involves dealing with tricky situations including login links sent to an email, captchas, SMS codes, and annoying promotional and cookie consent banners.
+
+You also have to religiously track your browser fingerprint and IP addresses used and keep them in sync with the right cookies to make sure your accounts don't get rate-limited, shadow-banned, or blocked altogether.
+
+This app sits alongside your scraping tool of choice (anything that uses a chrome-based browser, including ArchiveBox, Webrecorder, playwright, and more), and handles monitoring+fixing your browser profiles and sessions so they are warm and ready to use at all times.
+
+It keeps known-good browser fingerprints in sync with their cookies, LocalStorage, IndexedDB, and more. It also handles auto-fixing logged-out sessions by using AI to fill passwords and auth codes from 1Password, SMS, email, and captcha solving providers (via MCP). As the built-in agent (opencode) learns how to check & fix each site over time, it saves re-usable automation scripts for every common fix so the next time, no LLM or token spend is needed when that situation is encountered.
 
 | Again? | What gets in the way |
 | :--- | :--- |
@@ -34,7 +37,7 @@ A crawl can keep running long after a session expires, collecting login pages in
 | ✨ **“Meet our new feature”** | Product tours, newsletter popups, subscription offers |
 | ⏳ **“Try again later”** | Rate limits, CAPTCHAs, access restrictions |
 
-Session Tender monitors access and runs recovery tasks when something gets in the way, saving screenshots so you can see what happened and whether the browser is ready to use again.
+Session Tender monitors accounts continuously and runs known recovery fix scripts when something gets in the way, or uses AI for new situations. It saves screenshot proof when checks pass or fail, and pings you only if human intervention is really needed when an AI is unable to solve the problem (e.g. if an account gets perma-banned or contacting support is needed).
 
 ```mermaid
 flowchart LR
@@ -50,7 +53,7 @@ flowchart LR
     style F fill:#fff2d9,stroke:#b78126,color:#785318
 ```
 
-## See what your accounts can see
+## Ensure browser sessions are warm and ready for use across any provider
 
 - **Screenshot evidence** shows the feed, login wall, or obstruction each browser encountered.
 - **Flexible grouping** organizes accounts by persona, site, task, browser session, or AI session.
@@ -59,12 +62,15 @@ flowchart LR
 - **Separate checks and fixes** let you monitor content without changing it, while allowing recovery tasks to update the session.
 - **Integrates with many browser providers:** Browserbase, Kernel, Anchor Browser, Browserless, Zenrows, local Chrome/Brave, and more...
 
-## From blocked to verified
+![Session Tender showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
+
+
+## From blocked to unblocked
 
 <table>
 <tr>
 <th width="50%">① Access blocked</th>
-<th width="50%">② Content verified</th>
+<th width="50%">② Unblocked</th>
 </tr>
 <tr>
 <td><a href="docs/images/x-blocked.png"><img src="docs/images/x-blocked.png" alt="Real X session 80: login attempt blocked; access not confirmed" width="100%"></a></td>
