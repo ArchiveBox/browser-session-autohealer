@@ -156,5 +156,3 @@ uv run plain accounts worker
 ---
 
 [Development](docs/development.md) · [Architecture](docs/architecture.md) · [Recovery](docs/login-recovery.md) · [Browser providers](docs/providers.md) · [Screenshot sources](docs/images/README.md)
-
-<sub>Screenshots captured from the running app on October 4, 2026. Details are in the <a href="docs/images/README.md">screenshot sources</a>.</sub>
