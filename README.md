@@ -82,7 +82,7 @@ The same known-good session can be "checked out" by many jobs at once, and the l
 - **Import & export tools** allow you to sync fingerprints & cookies from your normal browser and use them for automation at scale.
 
 
-## Monitor health and proactively handle issues before they break your workflows
+## Monitors health and autofixes issues before they break your workflows
 
 ```mermaid
 flowchart LR
