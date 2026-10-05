@@ -6,7 +6,9 @@
 
 <sub>ARCHIVEBOX</sub>
 
-### Keep all your browser sessions logged-in and popup-free using AI to write re-usable scripts that fix common problems.
+### Keep all your browser sessions logged-in, unblocked, and captcha-free.
+
+#### Uses AI to fill 2FA codes, dismiss banners & popups, and create re-usable scripts that fix problems automatically on the next run.
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-aa1e55?style=flat-square)](#try-it)
 [![Checks and recovery](https://img.shields.io/badge/handles-checking_%2B_healing-334155?style=flat-square)](#from-blocked-to-unblocked)
