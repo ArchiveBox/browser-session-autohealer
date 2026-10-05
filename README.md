@@ -6,7 +6,7 @@
 
 <sub>ARCHIVEBOX</sub>
 
-### Keep all your browser sessions logged-in and popup-free using AI to auto-heal common problems.
+### Keep all your browser sessions logged-in and popup-free using AI to write re-usable scripts that fix common problems.
 
 [![Status: early alpha](https://img.shields.io/badge/status-early_alpha-aa1e55?style=flat-square)](#try-it)
 [![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
