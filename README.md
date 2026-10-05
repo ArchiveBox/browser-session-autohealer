@@ -87,9 +87,9 @@ flowchart LR
 - **Credential placeholders** let scoped integrations supply values to browser tools, with best-effort redaction before model calls.
 - **Browser and agent visibility** includes live views, screenshot timelines, and embedded OpenCode conversations.
 
-## Shared personas across browser providers
+## Leader election allows the same session to be forked & re-used by many jobs at once
 
-A **persona** is a saved browser identity: its site data, account sessions, and browser preferences.
+The same known-good session can be "checked out" by many jobs at once, and the last one to finish succesfully becomes the "leader" for future jobs using that account. This ensures that cookies expiration times gets bumped correctly, and that activity looks like a normal human browsing on a few devices at once.
 
 ![Real horizontal lineage: Local and Browserbase sessions fork from the same persona and return successful checkpoints to the canonical track](docs/images/lineage-providers.png)
 
