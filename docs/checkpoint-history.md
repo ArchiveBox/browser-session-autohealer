@@ -6,7 +6,7 @@ data only; neither a version store nor provider lifecycle is implemented yet.
 
 ## The user-facing model
 
-Session Tender owns the central collection. A provider checks out a specific
+Browser Session Autohealer owns the central collection. A provider checks out a specific
 checkpoint into an isolated writable copy. It can record checkpoints and check
 events on that run's branch. When finished, it checks the copy back in with an
 explicit outcome and evidence. Storing the return and promoting it are separate

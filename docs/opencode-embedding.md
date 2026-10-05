@@ -1,6 +1,6 @@
 # Embedded OpenCode
 
-`/agents` embeds OpenCode using Session Tender's normal admin session. There is
+`/agents` embeds OpenCode using Browser Session Autohealer's normal admin session. There is
 no separate OpenCode login or copy-password route. The loopback upstream keeps
 its private service credential, injected server-side.
 
@@ -17,7 +17,7 @@ The routing/authentication boundary follows `archivebox/opencode/views.py` at
 Local differences:
 
 - Mount prefix is `/agents/opencode`.
-- Lifecycle uses the existing Session Tender launcher and model settings.
+- Lifecycle uses the existing Browser Session Autohealer launcher and model settings.
 - The wrapper selects retained sessions instead of creating a default session.
 - HTTP, SSE and WebSockets inject the private upstream Authorization header.
 - Plain AuthView replaces the Django adapter. Plain's native socket messages

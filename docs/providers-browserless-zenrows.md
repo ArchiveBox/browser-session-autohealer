@@ -1,6 +1,6 @@
 # Browserless.io and ZenRows
 
-Both adapters start an isolated browser for each run. Session Tender restores
+Both adapters start an isolated browser for each run. Browser Session Autohealer restores
 cookies and portable origin storage through its shared CDP driver, exports them
 before stopping, and owns the canonical persona history. Neither adapter transfers
 a native Chrome profile, IndexedDB, or OPFS. The shared viewer uses CDP screenshots,

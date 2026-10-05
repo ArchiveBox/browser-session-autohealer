@@ -29,7 +29,7 @@ receipts, so label this as content-read-only, not side-effect-free.
 
 ## 2. Canonical store and small initial deployment
 
-One Session Tender service owns the canonical list of all known personas,
+One Browser Session Autohealer service owns the canonical list of all known personas,
 database, configuration, and versioned filesystem state. ArchiveBox, its browser
 extension, and browser providers are checkout consumers and import/export integrations, not competing
 persona registries. Provider IDs map to canonical persona/revision IDs. Provider
@@ -42,7 +42,7 @@ The initial sites are Facebook, Instagram, X, TikTok, YouTube, Reddit, and Linke
 
 ```mermaid
 flowchart LR
-    E[User extension] <-->|explicit push and pull| C[Session Tender service]
+    E[User extension] <-->|explicit push and pull| C[Browser Session Autohealer service]
     D[Persona and site dashboard] <--> C
     C --> Q[Canonical DB and revision filesystem]
     C <--> O[OpenCode server and existing web UI]
@@ -155,7 +155,7 @@ ArchiveBox's existing per-crawl profile copies are useful, but must check out th
 canonical revision and check in final state before deleting runtime `.persona`
 directories. Import cookies once per fork/revision, not repeatedly over a repaired
 session. Exactly one owner finalizes each fork. Generic browser capabilities stay
-in `abx-plugins`/`abx-dl`; Session Tender owns canonical personas and promotion.
+in `abx-plugins`/`abx-dl`; Browser Session Autohealer owns canonical personas and promotion.
 
 The narrow adapter contract is in [providers.md](providers.md). Provider lifecycle,
 state transfer, remote files, and viewing differ; browser operations use shared
@@ -258,7 +258,7 @@ and encrypted portable-state artifacts. Mutable forks live under
 A provider-only context ID is not a canonical backup. Provider bindings and
 ArchiveBox directories are projections of this single authority.
 
-Discovery precedence: explicit Session Tender config → explicit ArchiveBox
+Discovery precedence: explicit Browser Session Autohealer config → explicit ArchiveBox
 collection/API → explicitly supplied `PERSONAS_DIR` → conventional candidate
 collections (`$PWD/data`, `~/archivebox/data`, `/data`) → shared
 `~/.config/abx/personas`. Validate candidates before use; enumerate configured

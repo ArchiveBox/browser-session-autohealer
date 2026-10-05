@@ -3,71 +3,6 @@ revision = 3
 requires-python = "==3.14.*"
 
 [[package]]
-name = "account-checker"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "browser-cookie3" },
-    { name = "browser-harness" },
-    { name = "cryptography" },
-    { name = "django" },
-    { name = "httpx" },
-    { name = "jsonschema" },
-    { name = "mcp" },
-    { name = "plain" },
-    { name = "plain-assets" },
-    { name = "plain-auth" },
-    { name = "plain-htmx" },
-    { name = "plain-passwords" },
-    { name = "plain-postgres" },
-    { name = "plain-sessions" },
-    { name = "plain-tailwind" },
-    { name = "plain-templates" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "websockets" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "plain-dev" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "browser-cookie3" },
-    { name = "browser-harness", specifier = "==0.1.13" },
-    { name = "cryptography" },
-    { name = "django", specifier = ">=5.2,<7" },
-    { name = "httpx" },
-    { name = "jsonschema", specifier = ">=4,<5" },
-    { name = "mcp", specifier = ">=1.26,<2" },
-    { name = "plain" },
-    { name = "plain-assets" },
-    { name = "plain-auth" },
-    { name = "plain-htmx" },
-    { name = "plain-passwords" },
-    { name = "plain-postgres" },
-    { name = "plain-sessions" },
-    { name = "plain-tailwind" },
-    { name = "plain-templates" },
-    { name = "psycopg", extras = ["binary"] },
-    { name = "python-dotenv", specifier = ">=1,<2" },
-    { name = "requests", specifier = ">=2.34.2" },
-    { name = "websockets", specifier = ">=15,<16" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "plain-dev" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -135,6 +70,71 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7f/fe/59ab493e7cf76731a7f5aabae3821eea6ea82a628c14c30e7aed48adc362/browser_harness-0.1.13.tar.gz", hash = "sha256:284dc547a042c309feafd9a9f4a74b2a8651b7963ea3ac6cb2f2d64889f6a8f3", size = 114905, upload-time = "2026-09-04T02:53:23.133Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/bd/f166cf9a465eff436048d25851ab28b0d798af02b56998127a4165227fc4/browser_harness-0.1.13-py3-none-any.whl", hash = "sha256:2491459e4bfc0ee8aea22dc6c4680fc0f791b7ba553446323c50d2883449d769", size = 121123, upload-time = "2026-09-04T02:53:21.841Z" },
+]
+
+[[package]]
+name = "browser-session-autohealer"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "browser-cookie3" },
+    { name = "browser-harness" },
+    { name = "cryptography" },
+    { name = "django" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "mcp" },
+    { name = "plain" },
+    { name = "plain-assets" },
+    { name = "plain-auth" },
+    { name = "plain-htmx" },
+    { name = "plain-passwords" },
+    { name = "plain-postgres" },
+    { name = "plain-sessions" },
+    { name = "plain-tailwind" },
+    { name = "plain-templates" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "websockets" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "plain-dev" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "browser-cookie3" },
+    { name = "browser-harness", specifier = "==0.1.13" },
+    { name = "cryptography" },
+    { name = "django", specifier = ">=5.2,<7" },
+    { name = "httpx" },
+    { name = "jsonschema", specifier = ">=4,<5" },
+    { name = "mcp", specifier = ">=1.26,<2" },
+    { name = "plain" },
+    { name = "plain-assets" },
+    { name = "plain-auth" },
+    { name = "plain-htmx" },
+    { name = "plain-passwords" },
+    { name = "plain-postgres" },
+    { name = "plain-sessions" },
+    { name = "plain-tailwind" },
+    { name = "plain-templates" },
+    { name = "psycopg", extras = ["binary"] },
+    { name = "python-dotenv", specifier = ">=1,<2" },
+    { name = "requests", specifier = ">=2.34.2" },
+    { name = "websockets", specifier = ">=15,<16" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "plain-dev" },
+    { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [[package]]

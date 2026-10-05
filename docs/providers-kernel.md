@@ -1,6 +1,6 @@
 # Kernel browsers
 
-Session Tender's Kernel adapter launches a fresh cloud browser for each checkout.
+Browser Session Autohealer's Kernel adapter launches a fresh cloud browser for each checkout.
 The application's shared CDP driver restores portable persona state, supplies the
 live screenshot stream, and exports changed state before the browser is deleted.
 Kernel profiles, browser pools, managed authentication, and native profile transfer

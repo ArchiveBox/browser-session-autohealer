@@ -1,19 +1,19 @@
 <div align="center">
 
-<img src="app/assets/favicon.svg" width="56" height="56" alt="Session Tender">
+<img src="app/assets/favicon.svg" width="56" height="56" alt="Browser Session Autohealer">
 
-# Session Tender
+# Browser Session Autohealer
 
 <sub>ARCHIVEBOX</sub>
 
 ### Keep all your browser sessions logged-in and popup-free using AI to auto-heal common problems.
 
 [![Status: early alpha](https://img.shields.io/badge/status-early_alpha-aa1e55?style=flat-square)](#try-it)
-[![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#shared-personas-across-browser-providers)
+[![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
 [![Built with ArchiveBox](https://img.shields.io/badge/ArchiveBox-ecosystem-aa1e55?style=flat-square)](https://github.com/ArchiveBox/ArchiveBox)
-[![Checks and recovery](https://img.shields.io/badge/tasks-checks_%2B_recovery-334155?style=flat-square)](#from-blocked-to-verified)
+[![Checks and recovery](https://img.shields.io/badge/tasks-checks_%2B_recovery-334155?style=flat-square)](#from-blocked-to-unblocked)
 
-[Why it exists](#why-browser-sessions-need-maintenance) · [Screenshots](#see-what-your-accounts-can-see) · [Session history](#shared-personas-across-browser-providers) · [Get started](#try-it)
+[Why it exists](#why-browser-sessions-need-maintenance) · [Screenshots](#ensure-browser-sessions-are-warm-and-ready-for-use-across-any-provider) · [Session history](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once) · [Get started](#try-it)
 
 </div>
 
@@ -37,7 +37,7 @@ It keeps known-good browser fingerprints in sync with their cookies, LocalStorag
 | ✨ **“Meet our new feature”** | Product tours, newsletter popups, subscription offers |
 | ⏳ **“Try again later”** | Rate limits, CAPTCHAs, access restrictions |
 
-Session Tender monitors accounts continuously and runs known recovery fix scripts when something gets in the way, or uses AI for new situations. It saves screenshot proof when checks pass or fail, and pings you only if human intervention is really needed when an AI is unable to solve the problem (e.g. if an account gets perma-banned or contacting support is needed).
+Browser Session Autohealer monitors accounts continuously and runs known recovery fix scripts when something gets in the way, or uses AI for new situations. It saves screenshot proof when checks pass or fail, and pings you only if human intervention is really needed when an AI is unable to solve the problem (e.g. if an account gets perma-banned or contacting support is needed).
 
 ```mermaid
 flowchart LR
@@ -62,7 +62,7 @@ flowchart LR
 - **Separate checks and fixes** let you monitor content without changing it, while allowing recovery tasks to update the session.
 - **Integrates with many browser providers:** Browserbase, Kernel, Anchor Browser, Browserless, Zenrows, local Chrome/Brave, and more...
 
-![Session Tender showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
+![Browser Session Autohealer showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
 
 
 ## From blocked to unblocked

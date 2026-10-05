@@ -1,8 +1,8 @@
 # Screenshot sources
 
-[← Session Tender](../../README.md)
+[← Browser Session Autohealer](../../README.md)
 
-Captured October 4, 2026 from the running local Session Tender server at
+Captured October 4, 2026 from the running local Browser Session Autohealer server at
 `http://127.0.0.1:8421`. These are screenshots of the actual UI and its retained
 browser evidence. Crops frame existing content; no labels, outcomes, accounts,
 or browser content were fabricated or composited.

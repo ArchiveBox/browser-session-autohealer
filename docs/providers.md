@@ -1,6 +1,6 @@
 # Browser providers
 
-Session Tender implements seven browser adapters. The registry in
+Browser Session Autohealer implements seven browser adapters. The registry in
 `app/core/providers.py` defines runtime choices; cloud and borrowed-browser
 implementations live in `app/core/provider_backends/`. The
 [manifest](../providers/manifest.json) records implementation and verification

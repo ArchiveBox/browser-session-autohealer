@@ -16,7 +16,7 @@
 .record-tree[data-tree="providers"]>.record-grid,.record-tree[data-tree="providers"]>.record-node>.record-grid{grid-template-columns:minmax(150px,1fr) 85px 70px 38px 50px minmax(calc(var(--result-cols)*var(--result-width) + (var(--result-cols) - 1)*6px),3fr);min-width:calc(457px + var(--result-cols)*66px);gap:10px;padding:8px 10px}
 .record-tree[data-tree="providers"]>.record-node>summary{min-height:60px}
 .record-tree[data-tree="providers"]>.record-grid>:first-child,.record-tree[data-tree="providers"]>.record-node>.record-grid>:first-child{position:sticky;left:0;z-index:1;background:inherit}
-.record-images.aligned-results{display:grid;grid-template-columns:repeat(var(--result-cols),minmax(0,1fr));gap:6px;max-height:none;overflow:visible}
+.record-images.aligned-results{display:grid;grid-template-columns:repeat(var(--result-cols),minmax(0,110px));gap:6px;max-height:none;overflow:visible}
 .aligned-results .record-shot{max-width:none;min-width:0}
 .aligned-results img,.aligned-results .result-placeholder{display:grid;width:100%;height:auto;aspect-ratio:16/10;box-sizing:border-box}
 .aligned-results [hidden]{display:none}
@@ -30,4 +30,7 @@
 .result-picture{display:block;position:relative}
 .result-favicon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid #dce3e8;box-shadow:0 1px 4px #172b3a33;pointer-events:none}
 .record-images .result-favicon img{display:block;width:16px;height:16px;aspect-ratio:1;border:0;border-radius:0;box-shadow:none;background:transparent;object-fit:contain}
-.result-favicon[hidden],.result-picture:has(>img[hidden])>.result-favicon{display:none}
+.result-favicon[hidden]{display:none}
+
+.result-picture:has(.result-favicon)>.result-placeholder>.result-symbol{position:absolute;right:2px;bottom:1px;font-size:12px;line-height:1;z-index:1}
+.result-placeholder.missing-irrelevant:not([hidden])+.result-favicon{filter:grayscale(1);opacity:.5}

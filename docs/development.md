@@ -1,6 +1,6 @@
 # Development & operations
 
-[← Session Tender](../README.md)
+[← Browser Session Autohealer](../README.md)
 
 Run these commands from the project root.
 

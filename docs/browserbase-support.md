@@ -77,7 +77,7 @@ relying on it. Until then, use portable CDP transfer and declare its limits.
 captures and replays settings plus browser state. Its `recording/browser_state.ts`
 already handles cookies, environment, viewport, local/session storage and optional
 UI state. However, `indexed_db` and `opfs` currently return “coming soon...” markers;
-they are not implementations to reuse. Vendor tested pieces inside Session Tender
+they are not implementations to reuse. Vendor tested pieces inside Browser Session Autohealer
 with attribution, without modifying that repo. Expand the canonical state schema
 only as transfer implementations and real round-trip tests exist.
 

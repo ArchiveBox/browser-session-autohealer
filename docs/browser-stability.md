@@ -6,7 +6,7 @@ internal errors. Docker reported no OOM events and unused shared memory.
 A separate diagnostic CDP connection also received `Target crashed`.
 
 Chrome's original launcher outlived its parent driver's logging pipes. The
-Session Tender launcher now directs the same Chrome executable's output to
+Browser Session Autohealer launcher now directs the same Chrome executable's output to
 the session's private `chrome.log` for its entire lifetime. Session 87 retained
 three identical SIGILL crashes. The program counter resolved to ELF offset
 `0xb8f3850`: `cntd x9`, before `smstart sm` in an SME routine's prologue.
@@ -18,7 +18,7 @@ The stripped binary does not establish a precise source-level function name.
 
 ## Compatibility guard
 
-The Session Tender derived image builds a small `getauxval` interposer, loaded
+The Browser Session Autohealer derived image builds a small `getauxval` interposer, loaded
 only by its Chrome launcher. On ARM64 **without SVE**, it clears only the SME and
 SME2 hardware capability bits. All other bits remain unchanged. This prevents
 native CPU dispatch from choosing routines with unsupported prologues; existing

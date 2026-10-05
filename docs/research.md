@@ -17,7 +17,7 @@ have pre-existing changes; these IDs identify inspected bases, not clean release
 | `chrome/on_Snapshot__01_chrome_tab.daemon.bg.js` | Per-target lifecycle and color-scheme application | Most of the desired environment contract is not applied here |
 | `archivebox/archivebox/personas/models.py` | Derived config, persona dirs, locked per-crawl copying, per-snapshot forks | Runtime cleanup deletes fork state; no inspected last-ended-leader publication |
 | `archivebox/archivebox/services/runner.py` | Persona preparation and runtime cleanup points | Add checkout/check-in through a generic session contract |
-| `archivebox/archivebox/api/v1_personas.py` | Metadata listing and extension sync ingress | Canonical ownership must move to Session Tender without writing ArchiveBox's DB behind its API |
+| `archivebox/archivebox/api/v1_personas.py` | Metadata listing and extension sync ingress | Canonical ownership must move to Browser Session Autohealer without writing ArchiveBox's DB behind its API |
 | `../archivebox-browser-extension/src/lib/personaSync.ts` | Immutable selected-server request, cookies/settings payload | No local/session storage, IndexedDB, or OPFS in this sync payload |
 | `../archivebox-browser-extension/src/lib/personaSettings.ts` | Browser environment observation | Viewport currently comes from an extension page; verify the intended research-tab dimensions |
 | `abx-dl/Dockerfile`, `archivebox/Dockerfile` | Shared local browser/runtime image | ArchiveBox adds server/agent dependencies; hosted Browserbase is a different runtime |

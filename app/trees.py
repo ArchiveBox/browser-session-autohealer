@@ -44,34 +44,37 @@ def evidence(tiles):
                         'symbol': '!' if t['result'] else '◷'} for t in tiles])
 
 
+def site_result(domain, tiles):
+    blockers = [t for t in tiles if t['tone'] != 'success']
+    failures = [t for t in blockers if t['result'] and t['result'].status == 'failure' and not t['changed']]
+    tile = max(failures or blockers or tiles,
+               key=lambda t: (bool(t['image']), t['at'].timestamp() if t['at'] else 0), default=None)
+    passed = len(tiles) - len(blockers)
+    image = tile['image'] if tile and not tile['changed'] else ''
+    return {'key': domain, 'domain': domain,
+        'label': f"{domain} · {passed}/{len(tiles)} passed" + (f" · {tile['check']['name']}" if tile else ''),
+        'check_id': tile['check']['id'] if tile else None,
+        'url': image, 'href': tile['url'] if tile else '',
+        'tone': 'failed' if blockers else 'success' if tiles else 'neutral',
+        'missing': 'expected' if tiles else 'irrelevant',
+        'missing_label': 'No screenshot' if tile and tile['result'] else 'Not run' if tiles else 'Not configured',
+        'symbol': '!' if tile and tile['result'] else '◷' if tiles else '—'}
+
+
 def provider_table(providers):
-    # One shared ordering across providers; script revisions aren't new columns.
-    checks = list(Check.query.join('account__persona', 'account__site', 'provider')
-        .order_by('mode', 'account__site__domain', 'name', 'account__id', 'id'))
+    # Recovery tasks are actions, not ongoing access checks.
+    checks = list(Check.query.filter(mode='check').join('account__persona', 'account__site', 'provider')
+        .order_by('account__site__domain', 'name', 'account__id', 'id'))
     objects = {check.id: check for check in checks}
-    groups = health.grouped_checks(health.check_rows(checks))
-    columns = [{'key': min(group['member_ids']), 'label': group['check']['name']}
-               for group in groups]
+    domains = sorted({c.account.site.domain for c in checks})
+    tiles = health.check_rows(checks)
+    columns = [{'key': domain, 'label': domain} for domain in domains]
     rows = []
     for provider in providers:
-        shots = []
-        for column, group in zip(columns, groups, strict=True):
-            tile = next((t for t in group['provider_results']
-                         if t['check']['provider']['id'] == provider.id), None)
-            check = objects[(tile or group)['check']['id']]
-            expected = bool(tile and (tile['result'] or (
-                check.mode == 'check' and check.enabled and provider.enabled)))
-            label = f'{check.name} · {check.account.site.domain} · {check.account.persona.name}'
-            missing_label = ('No screenshot' if tile and tile['result'] else 'Not run') if expected else (
-                'Not configured for this provider' if not tile else
-                'Fix not triggered' if check.mode == 'fix' else 'Paused')
-            shots.append({**column, 'label': label, 'domain': check.account.site.domain, 'check_id': check.id if tile else None,
-                'url': tile['image'] if tile else '', 'href': tile['url'] if tile else '',
-                'tone': tile['tone'] if tile and tile['result'] else 'attention' if expected else 'neutral',
-                'missing': 'expected' if expected else 'irrelevant',
-                'missing_label': missing_label,
-                'symbol': '!' if expected and tile['result'] and tile['result'].status != 'running'
-                          else '◷' if expected else '—'})
+        shots = [site_result(domain, [t for t in tiles
+            if t['check']['provider']['id'] == provider.id and provider.enabled
+            and objects[t['check']['id']].enabled
+            and objects[t['check']['id']].account.site.domain == domain]) for domain in domains]
         rows.append(node('providers', provider.id, [
             cell(provider.name, color=provider.display_color, icon='▱', href=f'/edit/provider?id={provider.id}'),
             cell(provider.kind), cell('Enabled' if provider.enabled else 'Disabled', badge=True,

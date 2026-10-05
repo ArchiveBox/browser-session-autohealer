@@ -134,7 +134,7 @@ def session_rows(runs):
         duration = (run.finished_at - run.started_at).total_seconds() if run.started_at and run.finished_at else None
         rows.append({"run": run, "active": active, "disposition": disposition,
             "tone": "running" if active else "success" if run.tip in leaders else "neutral" if run.promoted else "failed",
-            "source": run.actor if run.runtime.get("external") else "Session Tender",
+            "source": run.actor if run.runtime.get("external") else "Browser Session Autohealer",
             "duration": f"{int(duration // 60)}m {int(duration % 60)}s" if duration is not None else "",
             "checks": [{"result": o, "image": result_image(o)[0],
                 "url": f"/runs/{run.id}/checks/{o.check_id}",

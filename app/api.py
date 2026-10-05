@@ -39,7 +39,7 @@ class API(View):
         if not keyfile.exists() or not hmac.compare_digest(
             authorization, "Bearer " + keyfile.read_text().strip()
         ):
-            raise ForbiddenError403("A valid Session Tender API token is required")
+            raise ForbiddenError403("A valid Browser Session Autohealer API token is required")
 
     def handle_exception(self, exc):
         if isinstance(exc, (ValueError, ValidationError)):

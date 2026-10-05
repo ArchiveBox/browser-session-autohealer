@@ -1,4 +1,6 @@
 {
+  "name": "browser-session-autohealer",
+  "private": true,
   "dependencies": {
     "@browserbasehq/stagehand": "3.7.3"
   },

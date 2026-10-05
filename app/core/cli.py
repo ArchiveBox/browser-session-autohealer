@@ -118,5 +118,5 @@ def agent():
 
     ensure_server()
     click.echo(
-        "OpenCode ready in Session Tender: http://127.0.0.1:8421/agents"
+        "OpenCode ready in Browser Session Autohealer: http://127.0.0.1:8421/agents"
     )

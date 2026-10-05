@@ -29,7 +29,7 @@ password = secrets.token_urlsafe(30)
 user = User.query.get(email=account.username)
 user.password = password
 user.update(fields=["password"])
-subject = "Session Tender test login " + secrets.token_hex(8)
+subject = "Browser Session Autohealer test login " + secrets.token_hex(8)
 cfg["accounts"][str(account.id)]["fields"]["password"]["subject"] = subject
 config.save(cfg)
 base = Checkpoint.query.filter(persona=account.persona, parent="").get()

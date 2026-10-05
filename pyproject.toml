@@ -1,7 +1,7 @@
 [project]
-name = "account-checker"
+name = "browser-session-autohealer"
 version = "0.1.0"
-description = "Session Tender by ArchiveBox — browser personas and account access monitoring"
+description = "Browser Session Autohealer by ArchiveBox — browser personas and account access monitoring"
 requires-python = "~=3.14.0"
 dependencies = [
   "plain",

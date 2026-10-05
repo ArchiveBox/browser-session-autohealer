@@ -5,7 +5,7 @@ following capabilities are implemented or that named libraries passed acceptance
 
 ## Decisions already supplied by the user
 
-- Session Tender owns one canonical persona registry, DB, and filesystem.
+- Browser Session Autohealer owns one canonical persona registry, DB, and filesystem.
 - Always fork profiles before browser use; multiple forks of one persona may run
   concurrently. The most recently ended eligible successful check-in becomes leader. Any run
   issue prevents automatic promotion; coherent failed returns remain inspectable.
