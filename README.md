@@ -48,29 +48,7 @@
 
 <img width="100%" alt="Many browser providers all logged into accounts and able to access content." src="https://github.com/user-attachments/assets/6f275900-d768-49af-8fed-f103f52bd215" />
 
-## Why browser sessions need maintenance
-
-Scraping at scale often involves dealing with tricky situations including login links sent to an email, captchas, SMS codes, and annoying promotional and cookie consent banners.
-
-You also have to religiously track your browser fingerprint and IP addresses used and keep them in sync with the right cookies to make sure your accounts don't get rate-limited, shadow-banned, or blocked altogether.
-
-```mermaid
-flowchart LR
-    A[Check access] --> B{Content available?}
-    B -->|Yes| C[Save working session]
-    B -->|No| D[Run recovery task]
-    D --> E[Check again]
-    E -->|Passed| C
-    E -->|Still blocked| F[Flag for help]
-    C --> G[Ready for collection]
-    style C fill:#e3f3ed,stroke:#16836b,color:#145c49
-    style D fill:#f8e9ef,stroke:#aa1e55,color:#881844
-    style F fill:#fff2d9,stroke:#b78126,color:#785318
-```
-
-This app sits alongside your scraping tool of choice (anything that uses a chrome-based browser, including ArchiveBox, Webrecorder, playwright, and more), and handles monitoring+fixing your browser profiles and sessions so they are warm and ready to use at all times.
-
-It keeps known-good browser fingerprints in sync with their cookies, LocalStorage, IndexedDB, and more. It also handles auto-fixing logged-out sessions by using AI to fill passwords and auth codes from 1Password, SMS, email, and captcha solving providers (via MCP). As the built-in agent (opencode) learns how to check & fix each site over time, it saves re-usable automation scripts (with `browser-use` & `stagehand`) for every fix so the next time, no LLM or token spend is needed when that situation is encountered.
+## Why browser sessions break
 
 | Common blockers | We handle it all |
 | :--- | :--- |
@@ -79,6 +57,14 @@ It keeps known-good browser fingerprints in sync with their cookies, LocalStorag
 | 🍪 **“Accept cookies”** | Consent banners covering the content you came for |
 | ✨ **“Meet our new feature”** | Product tours, newsletter popups, subscription offers |
 | ⏳ **“Try again later”** | Rate limits, CAPTCHAs, access restrictions |
+
+Scraping at scale often involves dealing with tricky situations including login links sent to an email, captchas, SMS codes, and annoying promotional and cookie consent banners.
+
+You also have to religiously track your browser fingerprint and IP addresses used and keep them in sync with the right cookies to make sure your accounts don't get rate-limited, shadow-banned, or blocked altogether.
+
+This app sits alongside your scraping tool of choice (anything that uses a chrome-based browser, including ArchiveBox, Webrecorder, playwright, and more), and handles monitoring+fixing your browser profiles and sessions so they are warm and ready to use at all times.
+
+It keeps known-good browser fingerprints in sync with their cookies, LocalStorage, IndexedDB, and more. It also handles auto-fixing logged-out sessions by using AI to fill passwords and auth codes from 1Password, SMS, email, and captcha solving providers (via MCP). As the built-in agent (opencode) learns how to check & fix each site over time, it saves re-usable automation scripts (with `browser-use` & `stagehand`) for every fix so the next time, no LLM or token spend is needed when that situation is encountered.
 
 
 ## Ensure browser sessions are warm and ready for use across any provider
@@ -105,6 +91,19 @@ The same known-good session can be "checked out" by many jobs at once, and the l
 - **Point-in-time snapshots** allow you to instantly revert sessions to known good states, compare what changed, and track down issues easily
 - **Import & export tools** allow you to sync fingerprints & cookies from your normal browser and use them for automation at scale.
 
+```mermaid
+flowchart LR
+    A[Check access] --> B{Content available?}
+    B -->|Yes| C[Save working session]
+    B -->|No| D[Run recovery task]
+    D --> E[Check again]
+    E -->|Passed| C
+    E -->|Still blocked| F[Flag for help]
+    C --> G[Ready for collection]
+    style C fill:#e3f3ed,stroke:#16836b,color:#145c49
+    style D fill:#f8e9ef,stroke:#aa1e55,color:#881844
+    style F fill:#fff2d9,stroke:#b78126,color:#785318
+```
 
 ## From blocked to unblocked
 
