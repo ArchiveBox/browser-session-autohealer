@@ -91,8 +91,8 @@ flowchart LR
     B -->|No| D[Run recovery task]
     D --> E[Check again]
     E -->|Passed| C
-    E -->|Still blocked| F[Flag for help]
-    C --> G[Ready for collection]
+    E -->|Still blocked| F[Notify a human]
+    C --> G[Ready for use]
     style C fill:#e3f3ed,stroke:#16836b,color:#145c49
     style D fill:#f8e9ef,stroke:#aa1e55,color:#881844
     style F fill:#fff2d9,stroke:#b78126,color:#785318
