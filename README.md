@@ -117,8 +117,8 @@ flowchart LR
 <td><a href="docs/images/x-verified.png"><img src="docs/images/x-verified.png" alt="Real X session 82: ArchiveBoxApp selected and readable timeline confirmed on Browserbase" width="100%"></a></td>
 </tr>
 <tr>
-<td><strong>Local · session #80</strong><br>X limited the login attempt, so the agent stopped and the failed session was discarded.</td>
-<td><strong>Browserbase · session #82</strong><br>After importing a Brave session, the agent selected @ArchiveBoxApp from the signed-in accounts and ran a separate check to confirm the timeline was readable.</td>
+<td>X limited the login attempt from a new IP, so the agent stopped and the failed session was discarded.</td>
+<td>Agent clicked required verification link sent via email, then logged in again and verified content is visible.</td>
 </tr>
 </table>
 
