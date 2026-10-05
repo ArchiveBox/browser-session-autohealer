@@ -67,7 +67,7 @@ This app sits alongside your scraping tool of choice (anything that uses a chrom
 It keeps known-good browser fingerprints in sync with their cookies, LocalStorage, IndexedDB, and more. It also handles auto-fixing logged-out sessions by using AI to fill passwords and auth codes from 1Password, SMS, email, and captcha solving providers (via MCP). As the built-in agent (opencode) learns how to check & fix each site over time, it saves re-usable automation scripts (with `browser-use` & `stagehand`) for every fix so the next time, no LLM or token spend is needed when that situation is encountered.
 
 
-## Leader election allows the same session to be forked & re-used by many jobs at once
+## Leader election allows sessions to be forked & re-used by parallel jobs
 
 The same known-good session can be "checked out" by many jobs at once, and the last one to finish succesfully becomes the "leader" for future jobs using that account. This ensures that cookie expiration times gets bumped correctly, and that activity looks like a normal human browsing on a few devices at once.
 
@@ -81,8 +81,7 @@ The same known-good session can be "checked out" by many jobs at once, and the l
 - **Import & export tools** allow you to sync fingerprints & cookies from your normal browser and use them for automation at scale.
 
 
-
-## Ensures browser sessions are warm and ready for use across any provider
+## Monitor health and proactively handle issues before they break your workflows
 
 ```mermaid
 flowchart LR
@@ -98,12 +97,10 @@ flowchart LR
     style F fill:#fff2d9,stroke:#b78126,color:#785318
 ```
 
-- **Screenshot evidence** shows the feed, login wall, or obstruction each browser encountered.
-- **Flexible grouping** organizes accounts by persona, site, task, browser session, or AI session.
-- **Plain-English checks** describe what you need, such as being signed in to a particular account and able to read its feed.
-- **Access history** records failures, recovery attempts, and subsequent results.
-- **Separate checks and fixes** let you monitor content without changing it, while allowing recovery tasks to update the session.
-- **Integrates with many browser providers:** Browserbase, Kernel, Anchor Browser, Browserless, Zenrows, local Chrome/Brave, and more...
+- **Screenshots** quickly reveal any browser automation obstruction encountered
+- **Dashboards** let you monitor for issues accross differents sites, tasks, accounts, or browser providers
+- **Describe checks and fixes in plain English** and the built-in AI agent will convert them to re-usable scripts + autoheal them when they break
+- **Audit logs** record failures, recovery attempts, task results, and sync events over time
 
 ![Browser Session Autohealer showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
 
