@@ -31,8 +31,7 @@
 </td>
 <td valign="top">
 <ul>
-<li><img src="https://www.google.com/s2/favicons?domain=chromium.org&amp;sz=64" width="30" height="30" alt="Chromium" align="absmiddle"> <a href="https://www.chromium.org">Local Chrome-based browsers</a></li>
-<li><a href="https://chromedevtools.github.io/devtools-protocol/"><img src="https://www.google.com/s2/favicons?domain=developer.chrome.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Generic CDP</a></li>
+<li><img src="https://www.google.com/s2/favicons?domain=chromium.org&amp;sz=64" width="30" height="30" alt="Chromium" align="absmiddle"> <a href="https://www.chromium.org">Any Chrome-based browsers</a></li>
 <li><a href="https://browserbase.com"><img src="https://www.google.com/s2/favicons?domain=browserbase.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserbase</a></li>
 <li><a href="https://kernel.sh"><img src="https://www.google.com/s2/favicons?domain=kernel.sh&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Kernel</a></li>
 <li><a href="https://anchorbrowser.io"><img src="https://www.google.com/s2/favicons?domain=anchorbrowser.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Anchor Browser</a></li>
