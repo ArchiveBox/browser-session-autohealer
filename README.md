@@ -17,6 +17,9 @@
 
 </div>
 
+<img width="607" height="357" alt="Screenshot 2026-10-05 at 1 17 36 PM" src="https://github.com/user-attachments/assets/6f275900-d768-49af-8fed-f103f52bd215" />
+
+
 ![Session Tender showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
 
 ## Why browser sessions need maintenance
@@ -54,6 +57,7 @@ flowchart LR
 - **Plain-English checks** describe what you need, such as being signed in to a particular account and able to read its feed.
 - **Access history** records failures, recovery attempts, and subsequent results.
 - **Separate checks and fixes** let you monitor content without changing it, while allowing recovery tasks to update the session.
+- **Integrates with many browser providers:** Browserbase, Kernel, Anchor Browser, Browserless, Zenrows, local Chrome/Brave, and more...
 
 ## From blocked to verified
 
