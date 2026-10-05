@@ -29,6 +29,7 @@
 <li><img src="docs/images/integrations/email.svg" width="30" height="30" alt="Email" align="absmiddle"> Fill codes &amp; login links sent to <strong>email</strong></li>
 <li><img src="https://www.google.com/s2/favicons?domain=voice.google.com&amp;sz=64" width="30" height="30" alt="Google Voice" align="absmiddle"> <img src="docs/images/integrations/messages.svg" width="30" height="30" alt="Messages" align="absmiddle"> Autofill 2FA from <strong>SMS / iMessage</strong></li>
 <li><img src="https://www.google.com/s2/favicons?domain=browser-use.com&amp;sz=64" width="30" height="30" alt="browser-use" align="absmiddle"> <img src="https://www.google.com/s2/favicons?domain=browserbase.com&amp;sz=64" width="30" height="30" alt="Stagehand by Browserbase" align="absmiddle"> Fix novel problems with AI using <a href="https://browser-use.com"><strong>browser-use</strong></a> &amp; <a href="https://www.stagehand.dev"><strong>Stagehand</strong></a></li>
+<li>Saves re-usable scripts so that costs stays low and LLMs are only called when things break</li>
 </ul>
 </td>
 <td valign="top">
