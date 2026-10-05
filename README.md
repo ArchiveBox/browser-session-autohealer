@@ -90,6 +90,19 @@ It keeps known-good browser fingerprints in sync with their cookies, LocalStorag
 
 ![Browser Session Autohealer showing real LinkedIn, Hacker News, and X accounts, with screenshot evidence and Local and Browserbase results](docs/images/accounts.png)
 
+## Leader election allows the same session to be forked & re-used by many jobs at once
+
+The same known-good session can be "checked out" by many jobs at once, and the last one to finish succesfully becomes the "leader" for future jobs using that account. This ensures that cookie expiration times gets bumped correctly, and that activity looks like a normal human browsing on a few devices at once.
+
+![Real horizontal lineage: Local and Browserbase sessions fork from the same persona and return successful checkpoints to the canonical track](docs/images/lineage-providers.png)
+
+- **Standard Chrome browser profiles** can be used by ArchiveBox, Playwright, Puppeteer, Browserbase, browser-use, and tons of other tools
+- **API Adapters** allow the same sessions & fingerprints to be synced across local Chrome, Browserbase, Kernel, Anchor Browser, Browserless, ZenRows, and many other providers
+- **Leader election** keeps the healthiest session across recent tasks ready to be re-used for upcoming tasks
+- **Powerful observability** keeps you aware of status & spend across all profiles, providers, tasks, and LLM sessions
+- **Point-in-time snapshots** allow you to instantly revert sessions to known good states, compare what changed, and track down issues easily
+- **Import & export tools** allow you to sync fingerprints & cookies from your normal browser and use them for automation at scale.
+
 
 ## From blocked to unblocked
 
@@ -112,19 +125,6 @@ It keeps known-good browser fingerprints in sync with their cookies, LocalStorag
 - **Recovery rules** connect recognized failures to an appropriate fix and a follow-up check.
 - **Credential placeholders** let scoped integrations supply values to browser tools, with best-effort redaction before model calls.
 - **Browser and agent visibility** includes live views, screenshot timelines, and embedded OpenCode conversations.
-
-## Leader election allows the same session to be forked & re-used by many jobs at once
-
-The same known-good session can be "checked out" by many jobs at once, and the last one to finish succesfully becomes the "leader" for future jobs using that account. This ensures that cookie expiration times gets bumped correctly, and that activity looks like a normal human browsing on a few devices at once.
-
-![Real horizontal lineage: Local and Browserbase sessions fork from the same persona and return successful checkpoints to the canonical track](docs/images/lineage-providers.png)
-
-- **Shared persona collection** for ArchiveBox, abx-dl, and other browser automation tools.
-- **Isolated browser copies** for parallel sessions on Local Chrome, Browserbase, Generic CDP, Kernel, Anchor Browser, Browserless.io, and ZenRows.
-- **A single current leader** updated by eligible successful sessions, with failed sessions excluded.
-- **Branch history** showing providers, task results, screenshots, and cookie additions or removals.
-- **Checkpoint comparisons** showing what changed, where it came from, and the associated evidence.
-- **Selective imports** for the sites you want to use, with browser preferences applied according to provider and CDP support.
 
 ## Try it
 
