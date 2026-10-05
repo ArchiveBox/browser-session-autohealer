@@ -19,6 +19,34 @@
 
 <img width="100%" alt="Many browser providers all logged into accounts and able to access content." src="https://github.com/user-attachments/assets/6f275900-d768-49af-8fed-f103f52bd215" />
 
+<table>
+<tr>
+<th width="50%" align="left">🔌 Integrations</th>
+<th width="50%" align="left">🌐 Browser providers</th>
+</tr>
+<tr>
+<td valign="top">
+<ul>
+<li><img src="https://www.google.com/s2/favicons?domain=1password.com&amp;sz=64" width="30" height="30" alt="1Password" align="absmiddle"> Autofill credentials from <a href="https://1password.com"><strong>1Password</strong></a> via MCP</li>
+<li><img src="docs/images/integrations/email.svg" width="30" height="30" alt="Email" align="absmiddle"> Fill codes and login links sent via <strong>email</strong> (IMAP MCP)</li>
+<li><img src="https://www.google.com/s2/favicons?domain=voice.google.com&amp;sz=64" width="30" height="30" alt="Google Voice" align="absmiddle"> <img src="docs/images/integrations/messages.svg" width="30" height="30" alt="Messages" align="absmiddle"> Autofill 2FA codes from <strong>SMS / iMessage</strong> via MCP</li>
+<li><img src="https://www.google.com/s2/favicons?domain=browser-use.com&amp;sz=64" width="30" height="30" alt="browser-use" align="absmiddle"> <img src="https://www.google.com/s2/favicons?domain=browserbase.com&amp;sz=64" width="30" height="30" alt="Stagehand by Browserbase" align="absmiddle"> Fix novel problems with AI using <a href="https://browser-use.com"><strong>browser-use</strong></a> &amp; <a href="https://www.stagehand.dev"><strong>Stagehand</strong></a></li>
+</ul>
+</td>
+<td valign="top">
+<ul>
+<li><img src="https://www.google.com/s2/favicons?domain=chromium.org&amp;sz=64" width="30" height="30" alt="Chromium" align="absmiddle"> <a href="https://www.chromium.org">Local Chrome-based browsers</a></li>
+<li><a href="https://chromedevtools.github.io/devtools-protocol/"><img src="https://www.google.com/s2/favicons?domain=developer.chrome.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Generic CDP</a></li>
+<li><a href="https://browserbase.com"><img src="https://www.google.com/s2/favicons?domain=browserbase.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserbase</a></li>
+<li><a href="https://kernel.sh"><img src="https://www.google.com/s2/favicons?domain=kernel.sh&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Kernel</a></li>
+<li><a href="https://anchorbrowser.io"><img src="https://www.google.com/s2/favicons?domain=anchorbrowser.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Anchor Browser</a></li>
+<li><a href="https://browserless.io"><img src="https://www.google.com/s2/favicons?domain=browserless.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserless</a></li>
+<li><a href="https://zenrows.com"><img src="https://www.google.com/s2/favicons?domain=zenrows.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> ZenRows</a></li>
+</ul>
+</td>
+</tr>
+</table>
+
 ## Why browser sessions need maintenance
 
 Scraping at scale often involves dealing with tricky situations including login links sent to an email, captchas, SMS codes, and annoying promotional and cookie consent banners.
