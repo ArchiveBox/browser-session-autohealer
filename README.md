@@ -8,10 +8,10 @@
 
 ### Keep all your browser sessions logged-in and popup-free using AI to write re-usable scripts that fix common problems.
 
-[![Status: alpha](https://img.shields.io/badge/status-aa1e55?style=flat-square)](#try-it)
-[![Seven browser adapters](https://img.shields.io/badge/browsers-7_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-aa1e55?style=flat-square)](#try-it)
 [![Built with ArchiveBox](https://img.shields.io/badge/ArchiveBox-ecosystem-aa1e55?style=flat-square)](https://github.com/ArchiveBox/ArchiveBox)
 [![Checks and recovery](https://img.shields.io/badge/Handles-checking_%2B_healing-334155?style=flat-square)](#from-blocked-to-unblocked)
+[![Seven browser adapters](https://img.shields.io/badge/browser_providers-7_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
 
 [Why it exists](#why-browser-sessions-need-maintenance) · [Screenshots](#ensure-browser-sessions-are-warm-and-ready-for-use-across-any-provider) · [Session history](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once) · [Get started](#try-it)
 
