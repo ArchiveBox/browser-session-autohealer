@@ -5,7 +5,7 @@ from copy import deepcopy
 from functools import lru_cache
 
 from . import services, storage
-from .models import Check, CheckRun, IPUsage, Persona, PersonaProviderConfig, Provider
+from .models import Check, CheckRun, Persona, PersonaProviderConfig, Provider
 from .providers import adapter
 from .site_scope import matches, normalize_sites, select_state
 
@@ -54,7 +54,7 @@ def validate(document):
         kind = item.get('type')
         fields = {'persona': {'id', 'name'}, 'provider': {'id', 'kind', 'name'},
                   'task': {'site', 'tasks', 'status', 'max_age'},
-                  'ip': {'ip', 'country', 'state', 'city', 'site', 'source', 'max_age'}}
+                  'ip': {'ip', 'country', 'state', 'city'}}
         if kind not in fields or set(item) - fields[kind] - {'type'}:
             raise ValueError('Unknown condition type or field')
         if len(item) < 2:
@@ -79,9 +79,6 @@ def validate(document):
                     any(not isinstance(t, (str, int)) or isinstance(t, bool) for t in item['tasks'])):
                 raise ValueError('tasks must be * or a nonempty list of task IDs or exact names')
         if kind == 'ip':
-            item.setdefault('source', 'session')
-            if item['source'] not in {'session', 'last_successful_session'}:
-                raise ValueError('Unknown IP source')
             if 'country' in item and not re.fullmatch('[A-Z]{2}', str(item['country'])):
                 raise ValueError('country must be a two-letter uppercase ISO code')
             if 'ip' in item:
@@ -208,24 +205,12 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
                 states = [task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))[0] for t in selected]
                 ok, reason = all(s == 'healthy' for s in states), next((s for s in states if s != 'healthy'), '')
         else:
-            if c['source'] == 'session' and run is None:
+            if run is None:
                 return Ellipsis  # Deferred until allocation, distinct from missing evidence.
-            if c['source'] == 'session':
-                observations = run.runtime.get('ip_observations', [])
-                record = observations[-1] if observations else None
-            else:
-                query = IPUsage.query.filter(run__persona=persona, run__provider=provider, run__status='success')
-                if c.get('site'):
-                    query = query.filter(run__scope=c['site'])
-                row = query.order_by('-ended_at').first()
-                record = {'ip': row.ip, 'geo': row.geo, 'at': row.ended_at.isoformat(), 'scope': row.scope} if row else None
+            observations = run.runtime.get('ip_observations', [])
+            record = observations[-1] if observations else None
             ok, reason = True if record else None, 'unknown_ip'
             if record:
-                from datetime import datetime
-                if c.get('site') and record.get('scope') not in {'session', c['site']}:
-                    ok, reason = None, 'unconfirmed_route'
-                if 'max_age' in c and (services.now() - datetime.fromisoformat(record['at'])).total_seconds() > c['max_age']:
-                    ok, reason = None, 'stale'
                 for key in ('ip', 'country', 'state', 'city'):
                     if ok is None:
                         break

@@ -21,6 +21,9 @@ def test_fresh_checks_cannot_be_requested_without_passing():
 @pytest.mark.parametrize('spec', [
     {'require_al': []}, {'timeout': True}, {'timeout': -2},
     {'require_all': [{'type': 'ip', 'country': 'usa'}]},
+    {'require_all': [{'type': 'ip', 'site': 'x.com', 'country': 'US'}]},
+    {'require_all': [{'type': 'ip', 'source': 'last_successful_session', 'country': 'US'}]},
+    {'require_all': [{'type': 'ip', 'max_age': 60, 'country': 'US'}]},
     {'require_all': [{'type': 'task', 'site': 'x.com', 'max_age': -1}]},
     {'require_all': [{'type': 'task', 'site': None}]},
     {'require_all': [{'type': 'task', 'site': ['x.com']}]},
@@ -36,7 +39,7 @@ def test_nested_conditions_and_ordered_preferences():
     spec = {'require_all': [{'require_any': [
         {'type': 'provider', 'kind': 'local'}, {'type': 'provider', 'kind': 'browserbase'},
     ]}, {'type': 'task', 'site': 'news.ycombinator.com', 'tasks': '*', 'max_age': 1200}],
-        'prefer': [{'type': 'ip', 'source': 'last_successful_session', 'country': c}
+        'prefer': [{'type': 'ip', 'country': c}
                    for c in ('US', 'CA', 'MX')], 'recheck': True, 'timeout': 50}
     result = validate(spec)
     assert result['prefer'] == spec['prefer']

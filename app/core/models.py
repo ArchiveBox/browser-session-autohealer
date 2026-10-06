@@ -239,7 +239,6 @@ class IPUsage(postgres.Model):
     started_at: Field[datetime] = types.DateTimeField()
     ended_at: Field[datetime] = types.DateTimeField()
     source: Field[str] = types.TextField(default='browser')
-    scope: Field[str] = types.TextField(default='probe')
     geo: Field[dict] = types.JSONField(default={}, required=False)
     model_options = postgres.Options(indexes=[
         postgres.Index(fields=['run'], name='ip_usage_run_idx'),

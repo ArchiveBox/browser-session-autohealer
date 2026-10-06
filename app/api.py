@@ -149,7 +149,9 @@ class RunAPI(API):
             raise ValueError("Run is already checked in")
         if action == 'ip':
             from .core.network import record
-            record(run, data['ip'], source='reported', scope=data.get('scope', 'probe'))
+            if set(data) != {'ip'}:
+                raise ValueError('Provide the session IP address')
+            record(run, data['ip'], source='reported')
         elif action == "issue":
             services.record_issue(run.id, str(data["message"])[:400])
         elif action == "observation":

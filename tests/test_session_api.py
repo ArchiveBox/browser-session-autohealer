@@ -33,20 +33,33 @@ def test_invalid_recheck_and_missing_request(api):
     assert api.post('/api/sessions', json={'recheck': True, 'allow_unhealthy': True}).status_code == 400
     assert api.post('/api/sessions', json={'prefer': None}).status_code == 400
     assert api.post('/api/sessions', json={'require_all': [{'type': 'task', 'site': None}]}).status_code == 400
+    assert api.post('/api/sessions', json={'require_all': [{'type': 'ip', 'site': 'x.com', 'country': 'US'}]}).status_code == 400
+    assert api.post('/api/sessions', json={'require_all': [{'type': 'ip', 'source': 'last_successful_session', 'country': 'US'}]}).status_code == 400
     assert api.get('/api/sessions/' + str(uuid4())).status_code == 404
     response = api.post('/api/sessions', json={'recheck': True, 'timeout': 0})
     assert response.status_code == 409
     assert response.json()['request']['detail']['code'] == 'recheck_requires_wait'
 
 
-def test_unknown_ip_history_cannot_satisfy_a_negative_location(api):
-    # No real session visited this unconfigured site. NOT must preserve unknown.
-    response = api.post('/api/sessions', json={'require_all': [{'not': {
-        'type': 'ip', 'site': 'unconfigured.example', 'source': 'last_successful_session', 'country': 'US'}}]})
+def test_ip_requirements_use_the_new_browser_session(api):
+    task = Check.query.filter(provider__kind='cdp', mode='check', enabled=True).first()
+    assert task
+    before = Run.query.count()
+    response = api.post('/api/sessions', json={'require_all': [
+        {'type': 'persona', 'id': str(task.account.persona.uid)},
+        {'type': 'provider', 'id': str(task.provider.uid)},
+        {'type': 'task', 'site': task.account.site.domain},
+        {'type': 'ip', 'ip': '127.0.0.1'}], 'allow_unhealthy': True, 'timeout': 30}, timeout=45)
     assert response.status_code == 409
-    assert all(any(u['reason'] == 'unknown_ip' for u in c['unmet']) or
-               any(u['pointer'] == '/provider_options' for u in c['unmet'])
-               for c in response.json()['request']['detail']['candidates'])
+    result = response.json()['request']
+    assert Run.query.count() == before + 1  # The real browser's address was measured.
+    assert result['ips'] and all(o['ip'] != '127.0.0.1' and 'scope' not in o for o in result['ips'])
+    assert any(u['reason'] == 'not_matched' for u in result['detail']['unmet'])
+    assert 'cdp_url' not in result
+    run = Run.query.get(id=result['session_id'])
+    assert run.checked_in_at and not run.promoted
+    from app.core.models import IPUsage
+    assert IPUsage.query.filter(run=run).count() == len({o['ip'] for o in result['ips']})
 
 
 def test_deadline_and_durable_cancellation(api):

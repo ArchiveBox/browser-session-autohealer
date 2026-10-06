@@ -28,6 +28,7 @@ document.addEventListener('click', async event => {
     else input.type=type;
     input.value=value ?? '';
     input.onchange=() => {change(input.value); preview();};
+    if (!choices) input.oninput=input.onchange;
     wrap.append(input); parent.append(wrap); return input;
   }
   function fresh(type) {
@@ -35,7 +36,7 @@ document.addEventListener('click', async event => {
     if (type==='not') return {not:{type:'provider',id:data.providers[0]?.id||''}};
     if (type==='persona'||type==='provider') return {type,id:data[type==='persona'?'personas':'providers'][0]?.id||''};
     if (type==='task') return {type,site:sites[0]||'',tasks:'*',status:'healthy'};
-    return {type:'ip',country:'US',source:'session'};
+    return {type:'ip'};
   }
   const kinds=[['persona','◎ Persona'],['provider','▱ Provider'],['task','✓ Site / task'],['ip','◎ IP'],['require_any','Any of…'],['require_all','All of…'],['not','Except…']];
   function controls(parent, items, render) {
@@ -84,10 +85,7 @@ document.addEventListener('click', async event => {
       const age=field(body,'Freshness · minutes',condition.max_age===undefined?'':condition.max_age/60,v=>set('max_age',v===''?'':Math.round(Number(v)*60)),null,'number');
       age.min='0';age.step='any';age.placeholder='Task interval';return;
     }
-    field(body,'Observed',condition.source||'session',v=>condition.source=v,[['session','This session'],['last_successful_session','Last successful session']]).parentElement.classList.add('wide-field');
     [['country','Country'],['state','State'],['city','City'],['ip','IP address']].forEach(([key,label])=>field(body,label,condition[key],v=>set(key,key==='country'?v.toUpperCase():v)));
-    field(body,'Site',condition.site||'',v=>set('site',v),[['','Any site'],...sites.map(s=>[s,s])]);
-    const age=field(body,'Freshness · minutes',condition.max_age===undefined?'':condition.max_age/60,v=>set('max_age',v===''?'':Math.round(Number(v)*60)),null,'number');age.min='0';age.placeholder='Any age';
   }
   function list(parent, items, ordered=false) {
     const draw=()=>{

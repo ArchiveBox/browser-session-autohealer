@@ -28,9 +28,9 @@ work in conditions. `POST /api/sessions` accepts:
     {"type": "task", "site": "x.com", "tasks": "*", "status": "healthy", "max_age": 1200}
   ],
   "prefer": [
-    {"type": "ip", "source": "last_successful_session", "site": "x.com", "country": "US"},
-    {"type": "ip", "source": "last_successful_session", "site": "x.com", "country": "CA"},
-    {"type": "ip", "source": "last_successful_session", "site": "x.com", "country": "MX"}
+    {"type": "ip", "country": "US"},
+    {"type": "ip", "country": "CA"},
+    {"type": "ip", "country": "MX"}
   ],
   "recheck": false,
   "timeout": 0,
@@ -123,7 +123,7 @@ CDP URLs are bearer capabilities: do not put them in logs or public frontend cod
 
 The existing state-exchange `/api/checkouts` endpoints remain available for apps
 that own browser launch themselves. They can report an observed IP with
-`POST /api/runs/<id>/ip` and `{"ip":"IP_ADDRESS","scope":"probe"}` before check-in.
+`POST /api/runs/<id>/ip` and `{"ip":"IP_ADDRESS"}` before check-in.
 
 ## IP audit and network settings
 
@@ -133,7 +133,7 @@ session. Provider and persona rows link to filtered IP history and network setti
 
 `IPUsage` belongs to a session; persona/provider and task results are derived through
 that session. No unique IP constraint or IP-to-provider/geolocation dictionary is used.
-Repeated observations of the same IP/source/route within one session form one row at
+Repeated observations of the same IP within one session form one row at
 check-in. Later sessions get new rows and fresh geolocation snapshots.
 
 Set `MAXMIND_CITY_DB` to a locally installed GeoLite2 City or GeoIP2 City MMDB. Lookup
@@ -141,10 +141,11 @@ stays local and snapshots the database version with each observation. Missing or
 databases show unknown location; geography requirements fail closed.
 
 The browser probes `SESSION_IP_PROBE_URL` (default `https://api64.ipify.org?format=json`)
-at launch and before check-in. This proves the probe's exit IP, **not necessarily a
-particular site's IP** on rotating or domain-specific proxies. A site-qualified IP
-condition requires a session-wide or site-specific observation; a probe alone cannot
-satisfy it. Client-reported observations are visibly labelled `reported`.
+at launch and before check-in. IP conditions always match this browser session's
+current address and location. They accept `ip`, `country`, `state` and `city`;
+there are no site, historical-session or freshness selectors. IP history is an
+audit log, not a substitute for measuring the newly created session.
+Client-reported observations are labelled `reported`.
 
 Network settings are one JSON configuration per persona/provider pair, interpreted
 only by its adapter. Blank form fields inherit provider defaults. Settings affect new

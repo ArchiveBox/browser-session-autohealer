@@ -94,7 +94,7 @@ class SessionView(Base):
                   'finalizing': 'Checking in', 'closed': 'Closed', 'failed': 'Unavailable', 'cancelled': 'Cancelled'}
         return {**super().get_template_context(), 'nav': 'runs', 'session_request': row, 'connection': state, 'evidence': evidence,
                 'state_version': self.state_version,
-                'ips': [{**network.label(ip['ip'], ip['geo']), 'scope': network.scope_label(ip['scope'])} for ip in state['ips']],
+                'ips': [network.label(ip['ip'], ip['geo']) for ip in state['ips']],
                 'status_label': labels[row.status], 'pending': row.status not in broker.TERMINAL,
                 'tone': 'success' if row.status == 'ready' else 'failed' if row.status == 'failed' else 'neutral',
                 'personas_by_uid': {str(p.uid): p.name for p in Persona.query.all()},

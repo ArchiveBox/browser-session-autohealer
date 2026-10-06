@@ -71,7 +71,7 @@ def state(request):
                       results=[{'task_id': str(p['uid']), 'name': p['name'], 'status': o.status, 'ended_at': o.ended_at.isoformat() if o.ended_at else None,
                                 'url': f'/runs/{run.id}/checks/{o.check_id}'}
                                for o in CheckRun.query.filter(run=run) for p in run.plan if p['id'] == o.check_id],
-                      ips=run.runtime.get('ip_observations', []))
+                      ips=[{k: o[k] for k in ('ip', 'at', 'source', 'geo')} for o in run.runtime.get('ip_observations', [])])
         if request.status == 'ready':
             result.update(adapter(run.provider).connection(run))
     return result

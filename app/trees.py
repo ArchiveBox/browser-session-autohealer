@@ -224,9 +224,9 @@ def root_table(kind, params):
                     'href': f'/runs/{run.id}/checks/{c.check_id}', 'missing': 'expected', 'symbol': '!'})
             rows.append(node('ips', entry.id, [cell(**location), cell(run.persona.name, href=f'/edit/persona?id={run.persona.id}'),
                 cell(run.provider.name, color=run.provider.display_color, href=f'/edit/provider?id={run.provider.id}'),
-                cell(f'#{run.id}', network.scope_label(entry.scope), href=f'/runs/{run.id}'), cell(health.time_label(entry.started_at)),
+                cell(f'#{run.id}', href=f'/runs/{run.id}'), cell(health.time_label(entry.started_at)),
                 cell(health.time_label(entry.ended_at)), cell(images=shots)], links=[('Same IP', f'/?view=ips&ip={entry.ip}')]))
-        result = table(kind, ['IP / location', 'Persona', 'Provider', 'Session / site', 'Started', 'Ended', 'Results'], rows)
+        result = table(kind, ['IP / location', 'Persona', 'Provider', 'Session', 'Started', 'Ended', 'Results'], rows)
     elif kind == 'runs':
         query = Run.query.join('persona', 'provider').order_by('-created_at')
         result = session_table(query[offset:offset+100], params.get('run', ''), params.get('check', ''))
@@ -318,7 +318,7 @@ class RelatedRecords(Base):
             entry = IPUsage.query.get(id=identifier)
             result = session_table([entry.run])
             detail = {'detail_title': network.label(entry.ip, entry.geo)['text'], 'detail_actions': [],
-                'detail_fields': [{'label': 'Source', 'value': entry.source}, {'label': 'Observed at', 'value': network.scope_label(entry.scope)},
+                'detail_fields': [{'label': 'Source', 'value': entry.source},
                     {'label': 'Geo database', 'value': entry.geo.get('database', 'Unavailable')}]}
         elif kind == 'personas':
             persona = Persona.query.get(id=identifier)

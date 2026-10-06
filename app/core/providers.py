@@ -121,7 +121,6 @@ class CDPAdapter:
         "native": False, "cookies": True, "localStorage": True,
         "sessionStorage": True, "indexedDB": False, "opfs": False, "screencast": True,
     }
-    egress_scope = 'probe'
     network_fields: ClassVar[dict] = {}
 
     def validate_handoff(self, config):

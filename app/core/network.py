@@ -43,16 +43,10 @@ def label(ip, geo):
     return {'text': f'{flag} {ip}', 'sub': location or '—'}
 
 
-def scope_label(scope):
-    return {'probe': 'IP check', 'session': 'Whole session'}.get(scope, scope)
-
-
-def record(run, ip, *, source='browser', scope='probe'):
+def record(run, ip, *, source='browser'):
     ip = str(ipaddress.ip_address(ip))
-    if not isinstance(scope, str) or len(scope) > 255 or scope not in {'probe', 'session', *run.runtime.get('account_scopes', [])}:
-        raise ValueError('IP scope must be probe, session, or a site configured for this persona')
     observation = {'ip': ip, 'at': services.now().isoformat(), 'source': source,
-                   'scope': scope, 'geo': geolocate(ip)}
+                   'geo': geolocate(ip)}
     with transaction.atomic():
         locked = Run.query.for_update().get(id=run.id)
         if locked.checked_in_at:
@@ -65,10 +59,10 @@ def record(run, ip, *, source='browser', scope='probe'):
 
 
 def observe(run):
-    from .providers import adapter, browser_command
+    from .providers import browser_command
     try:
         result = browser_command('egress', run, url=os.environ.get('SESSION_IP_PROBE_URL', 'https://api64.ipify.org?format=json'))
-        return record(run, result['ip'], scope=adapter(run.provider).egress_scope)
+        return record(run, result['ip'])
     except (RuntimeError, ValueError, KeyError):
         # An unavailable audit endpoint must not change an otherwise healthy login.
         # A requested IP condition still fails explicitly with unknown_ip.
@@ -80,9 +74,8 @@ def finalize(run):
     observations = run.runtime.get('ip_observations', [])
     groups = {}
     for observation in observations:
-        key = (observation['ip'], observation['source'], observation['scope'])
-        groups.setdefault(key, []).append(observation)
-    for (ip, source, scope), samples in groups.items():
-        IPUsage.query.create(run=run, ip=ip, source=source, scope=scope,
+        groups.setdefault(observation['ip'], []).append(observation)
+    for ip, samples in groups.items():
+        IPUsage.query.create(run=run, ip=ip, source=samples[-1]['source'],
             started_at=datetime.fromisoformat(samples[0]['at']),
             ended_at=datetime.fromisoformat(samples[-1]['at']), geo=samples[-1]['geo'])
