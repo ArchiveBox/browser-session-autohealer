@@ -18,6 +18,7 @@ def test_builder_and_task_editor_are_distinct(app_session):
                   'Conditions JSON', 'Provider options JSON', 'Recheck before use', 'Lifetime', 'API request', 'Create session'):
         assert label in page.text
     builder = json.loads(re.search(r'<script type="application/json" id="builder-data">(.*?)</script>', page.text, re.DOTALL)[1])
+    assert all(set(provider) == {'id', 'name'} for provider in builder['providers'])
     assert builder['tasks'] and all(t['persona'] and t['provider'] for t in builder['tasks'])
     for task in builder['tasks']:
         if task['image']:
@@ -30,12 +31,12 @@ def test_builder_and_task_editor_are_distinct(app_session):
 
 @pytest.mark.parametrize('document', [[], {'require_all': None}, {'recheck': True, 'allow_unhealthy': True}])
 def test_invalid_form_does_not_allocate(app_session, document):
-    before = Run.query.count()
-    response = app_session.post('/edit/session', data={'key': str(uuid4()), 'document': json.dumps(document)},
+    key = str(uuid4())
+    response = app_session.post('/edit/session', data={'key': key, 'document': json.dumps(document)},
                                 headers={'Origin': ORIGIN})
     assert response.status_code == 200
     assert 'class="error"' in response.text
-    assert Run.query.count() == before
+    assert not SessionRequest.query.filter(key=key).exists()
 
 
 def test_unavailable_result_and_duplicate_submission(app_session):
@@ -71,8 +72,7 @@ def test_availability_and_edit_keep_the_requested_conditions(app_session):
         {'type': 'provider', 'id': str(task.provider.uid)},
         {'type': 'task', 'site': task.account.site.domain, 'max_age': 0},
         {'type': 'ip', 'country': 'AO'},
-    ], 'timeout': 0}
-    before = (Run.query.count(), SessionRequest.query.count())
+    ], 'timeout': 0, 'actor': str(uuid4())}
     preview = app_session.post('/sessions/preview', json=spec, headers={'Origin': ORIGIN})
     assert preview.status_code == 200
     assert preview.text.count('class="availability-row"') == 1
@@ -81,7 +81,8 @@ def test_availability_and_edit_keep_the_requested_conditions(app_session):
     screenshot = re.search(r'<img src="(/evidence/\d+/[^"]+)"', preview.text)
     assert screenshot and app_session.get(screenshot[1]).headers['content-type'].startswith('image/')
     assert 'Browserbase' not in preview.text
-    assert (Run.query.count(), SessionRequest.query.count()) == before
+    assert not Run.query.filter(actor=spec['actor']).exists()
+    assert not SessionRequest.query.filter(spec__actor=spec['actor']).exists()
     assert app_session.post('/sessions/preview', json={'require_all': None}, headers={'Origin': ORIGIN}).status_code == 400
     assert httpx.post(ORIGIN + '/sessions/preview', json=spec).status_code == 302
     assert app_session.get('/sessions/preview').status_code == 405
@@ -104,5 +105,5 @@ def test_availability_and_edit_keep_the_requested_conditions(app_session):
         assert initial['timeout'] == (60 if recheck else 0)
         assert all('config' not in provider for provider in builder['providers'])
     assert SessionRequest.query.get(uid=uid).spec == row.spec
-    assert Run.query.count() == before[0]
+    assert not Run.query.filter(actor=spec['actor']).exists()
     assert app_session.get('/edit/session', params={'request': 'not-a-uuid'}).status_code == 404

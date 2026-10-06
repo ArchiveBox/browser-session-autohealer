@@ -11,7 +11,6 @@ from plain.templates.views import FormView
 from .core import health, network
 from .core import session_broker as broker
 from .core.models import Check, CheckRun, Persona, Provider, SessionRequest
-from .core.providers import adapter
 from .core.session_conditions import candidates, validate
 from .views import Base
 
@@ -78,15 +77,6 @@ class SessionEditor(Base, FormView):
     def get_template_context(self):
         from uuid import uuid4
         ctx = super().get_template_context()
-        providers = []
-        for p in Provider.query.filter(enabled=True).order_by('name'):
-            runtime = adapter(p)
-            try:
-                runtime.validate_handoff(p.config)
-                unavailable = ''
-            except ValueError as exc:
-                unavailable = str(exc)
-            providers.append({'id': str(p.uid), 'name': p.name, 'unavailable': unavailable})
         document = self.request.form_data.get('document') if self.request.method == 'POST' else None
         source = None
         if self.request.method == 'GET' and self.request.query_params.get('request'):
@@ -117,7 +107,7 @@ class SessionEditor(Base, FormView):
                 'at': result.ended_at.isoformat() if result and result.ended_at else ''})
         return {**ctx, 'nav': 'runs', 'builder': {
             'personas': [{'id': str(p.uid), 'name': p.name} for p in Persona.query.order_by('name')],
-            'providers': providers,
+            'providers': [{'id': str(p.uid), 'name': p.name} for p in Provider.query.filter(enabled=True).order_by('name')],
             'tasks': tasks,
             'initial': initial}, 'request_key': self.request.form_data.get('key') or str(uuid4())}
 
