@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 from functools import lru_cache
 
-from . import services, storage
+from . import network, services, storage
 from .models import Check, CheckRun, Persona, PersonaProviderConfig, Provider
 from .providers import adapter
 from .site_scope import matches, normalize_sites, select_state
@@ -111,6 +111,11 @@ def same_id(obj, value):
     return str(value) in {str(obj.id), str(obj.uid)}
 
 
+def identity_matches(obj, condition):
+    return all(same_id(obj, value) if key == 'id' else getattr(obj, key) == value
+               for key, value in condition.items() if key != 'type')
+
+
 def configured_checks(persona, provider, spec):
     checks = list(Check.query.filter(account__persona=persona, provider=provider, enabled=True, mode='check')
                   .join('account__site'))
@@ -189,16 +194,20 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
             if op == 'not':
                 value = test(c[op], path + '/not', not negate)
                 return value if value in (None, Ellipsis) else not value
+            start = len(results)
             children = [test(v, f'{path}/{op}/{i}', negate) for i, v in enumerate(c[op])]
             if op == 'require_all':
-                return False if False in children else None if None in children else Ellipsis if Ellipsis in children else True
-            return True if True in children else Ellipsis if Ellipsis in children else None if None in children else False
+                value = False if False in children else None if None in children else Ellipsis if Ellipsis in children else True
+            else:
+                value = True if True in children else Ellipsis if Ellipsis in children else None if None in children else False
+            if value is Ellipsis or (value is not None and (not value if negate else value)):
+                del results[start:]  # Satisfied alternatives are not blockers.
+            return value
         kind, reason, counts = c['type'], '', {}
         ok = True
         if kind in {'persona', 'provider'}:
             obj = persona if kind == 'persona' else provider
-            ok = all(same_id(obj, value) if key == 'id' else getattr(obj, key) == value
-                     for key, value in c.items() if key != 'type')
+            ok = identity_matches(obj, c)
             reason = 'not_matched'
         elif kind == 'task':
             selected = [t for t in checks if task_matches(t, c)]
@@ -210,13 +219,20 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
             elif path.startswith('/require_all') and ((preparing and spec['recheck']) or spec['allow_unhealthy']):
                 ok, reason = len(selected) >= minimum, 'not_enough_checks'
             else:
-                states = [task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))[0] for t in selected]
+                evidence = [(t, *task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))) for t in selected]
+                states = [state for _, state, _ in evidence]
                 passed = states.count('healthy')
-                counts = {'passed': passed, 'required': minimum, 'total': len(selected)}
+                counts = {'passed': passed, 'required': minimum, 'total': len(selected), 'checks': [
+                    {'name': t.name, 'state': state, 'result_id': result.id if result else None,
+                     'ended_at': result.ended_at.isoformat() if result and result.ended_at else None,
+                     'max_age': c.get('max_age', t.interval_seconds)} for t, state, result in evidence]}
                 ok = passed >= minimum
                 reason = 'not_enough_passing_checks' if 'min_passed' in c else next((s for s in states if s != 'healthy'), '')
         else:
             if run is None:
+                if any(k in c for k in ('country', 'state', 'city')) and network.database_error():
+                    results.append({'pointer': path, 'condition': c, 'matched': False, 'reason': 'geolocation_unavailable'})
+                    return None
                 return Ellipsis  # Deferred until allocation, distinct from missing evidence.
             observations = run.runtime.get('ip_observations', [])
             record = observations[-1] if observations else None
@@ -233,7 +249,7 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
                         if str(value).casefold() != str(c[key]).casefold():
                             ok, reason = False, 'not_matched'
         matched = ok is not None and (not ok if negate else ok)
-        results.append({'pointer': path, 'matched': matched, 'reason': '' if matched else reason, **counts})
+        results.append({'pointer': path, 'condition': c, 'matched': matched, 'reason': '' if matched else reason, **counts})
         return ok
 
     matched = [test(c, f'/require_all/{i}') for i, c in enumerate(spec['require_all'])]
@@ -244,18 +260,23 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
         elif not (preparing and spec['recheck']) and not any(c['type'] == 'task' for c in leaves(spec['require_all'])):
             # Explicit task clauses own their age limits and Boolean grouping.
             for check in checks:
-                state, _ = task_health(check, config, run=run, fresh=fresh)
-                if state != 'healthy':
-                    matched.append(False)
-                    results.append({'pointer': '/require_all', 'task_id': str(check.uid), 'matched': False, 'reason': state})
+                matched.append(test({'type': 'task', 'site': check.account.site.domain,
+                                     'tasks': [str(check.uid)]}, '/require_all'))
     score = tuple(test(c, f'/prefer/{i}') is True for i, c in enumerate(spec['prefer']))
     return (False not in matched and None not in matched and (preparing or Ellipsis not in matched)), score, [r for r in results if not r['matched'] and r['pointer'].startswith('/require_all')], checks, config
 
 
 def candidates(spec):
     rows = []
-    for persona in Persona.query.order_by('id'):
-        for provider in Provider.query.filter(enabled=True).order_by('id'):
+    # Direct selectors narrow the search, rather than reporting unrelated browsers as failures.
+    def selected(kind, objects):
+        selectors = [c for c in spec['require_all'] if c.get('type') == kind]
+        return [obj for obj in objects if all(identity_matches(obj, c) for c in selectors)]
+
+    personas = selected('persona', Persona.query.order_by('id'))
+    providers = selected('provider', Provider.query.filter(enabled=True).order_by('id'))
+    for persona in personas:
+        for provider in providers:
             try:
                 ok, score, unmet, checks, config = evaluate(spec, persona, provider, preparing=True)
                 adapter(provider).validate_handoff(config)

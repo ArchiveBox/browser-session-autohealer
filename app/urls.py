@@ -18,7 +18,7 @@ from . import (
 from .compare import CompareView
 from .lineage import LineageView
 from .network import NetworkEditor
-from .sessions import SessionEditor, SessionStatus, SessionView
+from .sessions import SessionEditor, SessionPreview, SessionStatus, SessionView
 
 
 class AppRouter(Router):
@@ -36,6 +36,7 @@ class AppRouter(Router):
         path("edit/check-type", check_types.CheckTypeEditor, name="check-type-editor"),
         path("edit/task-session", check_types.SessionEditor, name="task-session-editor"),
         path("edit/session", SessionEditor, name="session-editor"),
+        path("sessions/preview", SessionPreview, name="session-preview"),
         path("sessions/<str:uid>", SessionView, name="session-request"),
         path("sessions/<str:uid>/status", SessionStatus, name="session-status"),
         path("edit/<str:kind>", views.Editor, name="editor"),

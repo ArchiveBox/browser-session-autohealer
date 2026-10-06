@@ -54,7 +54,8 @@ def create(document, key=None):
 
 def diagnostics(ranked):
     return [{'persona_id': str(c['persona'].uid), 'provider_id': str(c['provider'].uid),
-             'unmet': c['unmet']} for c in ranked[:20]]
+             'persona': c['persona'].name, 'provider': c['provider'].name,
+             'eligible': c['eligible'], 'unmet': c['unmet']} for c in ranked[:20]]
 
 
 def state(request):
@@ -178,8 +179,6 @@ def prepare(request_id):
         runtime.connection(run)
         if request.spec['recheck']:
             stage = 'recheck'
-            if request.spec['timeout'] == 0:
-                raise RuntimeError('Fresh checks require a positive timeout or -1')
             run_checks(run, saved, request_id)
         run = Run.query.get(id=run.id)
         stage = 'conditions'
@@ -355,8 +354,7 @@ def _loop(once):
                         if locked.status != 'queued':
                             continue
                         locked.status = 'preparing'
-                        locked.detail = {**locked.detail, 'owner_pid': os.getpid()}
-                        locked.update(fields=['status', 'detail'])
+                        locked.update(fields=['status'])
                     jobs[request.id] = pool.submit(job, prepare, request.id)
                 elif request.status in {'ready', 'releasing', 'finalizing', 'failed'} and len(jobs) < 4:
                     jobs[request.id] = pool.submit(job, supervise, request.id)

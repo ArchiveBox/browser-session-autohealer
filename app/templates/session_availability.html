@@ -1,0 +1,8 @@
+<div class="session-availability">
+{% for row in availability %}<section class="availability-row">
+<div class="availability-heading"><strong>{{row.persona}}</strong><span>{{row.provider}}</span><span class="badge {{'success' if row.eligible else 'attention'}}">{{'Recheck' if row.eligible and recheck else 'Eligible' if row.eligible else 'Unavailable'}}</span></div>
+{% for issue in row.unmet %}<div class="availability-issue"><div><strong>{{issue.label}}</strong>{% if issue.value %} <code>{{issue.value}}</code>{% endif %}<span>{{issue.message}}</span>{% if issue.required is defined %}<small>{{issue.passed|default(0)}} / {{issue.required}} passing</small>{% endif %}</div>
+{% if issue.reason=='geolocation_unavailable' %}<small>MaxMind {{'database missing' if geo_error=='database_missing' else 'database invalid'}}</small>{% endif %}
+{% for check in issue.checks|default([]) %}<a class="availability-check {{check.state}}" href="{{check.url|default('#')}}" target="_blank">{% if check.image %}<img src="{{check.image}}" alt="{{check.name}}">{% else %}<span class="result-placeholder">◷</span>{% endif %}<span>{{check.name}}<small>{{check.at|default('No result')}}{% if check.age_limit %} · limit {{check.age_limit}}{% endif %}</small></span></a>{% endfor %}</div>{% endfor %}
+</section>{% else %}<div class="availability-empty">No matching persona or provider.</div>{% endfor %}
+</div>

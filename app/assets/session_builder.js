@@ -31,98 +31,30 @@ document.addEventListener('click', async event => {
     if (!choices) input.oninput=input.onchange;
     wrap.append(input); parent.append(wrap); return input;
   }
-  function fresh(type) {
-    if (type==='require_all'||type==='require_any') return {[type]:[]};
-    if (type==='not') return {not:{type:'provider',id:data.providers[0]?.id||''}};
-    if (type==='persona'||type==='provider') return {type,id:data[type==='persona'?'personas':'providers'][0]?.id||''};
-    if (type==='task') return {type,site:sites[0]||'',tasks:'*',status:'healthy'};
-    return {type:'ip'};
-  }
-  const kinds=[['persona','◎ Persona'],['provider','▱ Provider'],['task','✓ Site / task'],['ip','◎ IP'],['require_any','Any of…'],['require_all','All of…'],['not','Except…']];
-  function controls(parent, items, render) {
-    const bar=el('div','',{class:'condition-add'}), select=el('select','',{'aria-label':'Condition type'});
-    kinds.forEach(([k,label])=>select.append(el('option',label,{value:k})));
-    bar.append(select,button('＋ Add',()=>{items.push(fresh(select.value));render();preview();})); parent.append(bar);
-  }
-  function row(parent, condition, remove) {
-    const box=el('div','',{class:'condition-row'}), body=el('div','',{class:'condition-fields'});
-    const kind=condition.type||Object.keys(condition)[0];
-    box.append(el('strong',kinds.find(k=>k[0]===kind)?.[1]||kind),body,button('×',remove,'Remove condition'));
-    parent.append(box);
-    if (!condition.type) {
-      const nested=el('div','',{class:'condition-group'});body.append(nested);
-      if (kind==='not') {
-        const select=field(body,'Exclude',condition.not.type,v=>{condition.not=fresh(v);draw();},kinds.filter(k=>['persona','provider','ip'].includes(k[0])));
-        const draw=()=>{nested.replaceChildren();row(nested,condition.not,()=>{condition.not=fresh(select.value);draw();preview();});};draw();
-      } else list(nested,condition[kind]);
-      return;
-    }
-    const set=(key,value)=>{if(value==='')delete condition[key];else condition[key]=value;};
-    if (kind==='persona'||kind==='provider') {
-      const items=kind==='persona'?data.personas:data.providers;
-      field(body,kind==='persona'?'Persona':'Provider',condition.id,v=>{condition.id=v;},items.map(p=>[p.id,p.name]));
-      if(kind==='provider') {
-        const note=el('small','',{class:'provider-availability'});body.append(note);
-        const update=()=>{note.textContent=items.find(p=>p.id===condition.id)?.unavailable||'';};
-        body.querySelector('select').addEventListener('change',update);update();
-      }
-      return;
-    }
-    if (kind==='task') {
-      const options=el('div','',{class:'task-choices'});
-      function tasks() {
-        options.replaceChildren();
-        const names=[...new Set(data.tasks.filter(t=>t.site===condition.site).map(t=>t.name))];
-        const pick=field(options,'Tasks',condition.tasks==='*'?'*':'selected',v=>{condition.tasks=v==='*'?'*':names.slice(0,1);tasks();},[['*','All tasks'],['selected','Selected tasks']]);
-        if(pick.value==='selected') names.forEach(name=>{
-          const label=el('label',''), input=el('input','',{type:'checkbox'});input.checked=condition.tasks.includes(name);
-          input.onchange=()=>{condition.tasks=input.checked?[...condition.tasks,name]:condition.tasks.filter(t=>t!==name);preview();};
-          label.append(input,document.createTextNode(name));options.append(label);
-        });
-      }
-      field(body,'Site',condition.site,v=>{condition.site=v;condition.tasks='*';tasks();},sites.map(s=>[s,s])).parentElement.classList.add('wide-field');
-      body.append(options);tasks();
-      const age=field(body,'Freshness · minutes',condition.max_age===undefined?'':condition.max_age/60,v=>set('max_age',v===''?'':Math.round(Number(v)*60)),null,'number');
-      age.min='0';age.step='any';age.placeholder='Task interval';
-      const minimum=field(body,'Minimum passes',condition.min_passed??'',v=>set('min_passed',v===''?'':Number(v)),null,'number');
-      minimum.min='1';minimum.step='1';minimum.placeholder='All';return;
-    }
-    [['country','Country'],['state','State'],['city','City'],['ip','IP address']].forEach(([key,label])=>field(body,label,condition[key],v=>set(key,key==='country'?v.toUpperCase():v)));
-  }
-  function list(parent, items, ordered=false) {
-    const draw=()=>{
-      parent.replaceChildren();
-      items.forEach((condition,i)=>{
-        const wrap=el('div','',{class:'condition-item'});parent.append(wrap);
-        if(ordered) {wrap.append(el('span',String(i+1),{class:'preference-rank'})); if(i)wrap.append(button('↑',()=>{[items[i-1],items[i]]=[items[i],items[i-1]];draw();preview();},'Move preference up'));}
-        row(wrap,condition,()=>{items.splice(i,1);draw();preview();});
-      });
-      controls(parent,items,draw);
-    }; draw();
-  }
-  list($('required-conditions'),spec.require_all);list($('preferred-conditions'),spec.prefer,true);
   $('recheck').checked=!!spec.recheck;$('allow-unhealthy').checked=!!spec.allow_unhealthy;
   $('lifetime').value=spec.lifetime||1800;$('actor').value=spec.actor||'UI';
   const timeout=spec.timeout??60;$('wait-mode').value=[0,-1,60].includes(timeout)?String(timeout):'custom';$('timeout').value=timeout>0?timeout:60;
   $('recheck').onchange=()=>{if($('recheck').checked){$('allow-unhealthy').checked=false;if($('wait-mode').value==='0')$('wait-mode').value='60';}preview();};
   $('allow-unhealthy').onchange=()=>{if($('allow-unhealthy').checked)$('recheck').checked=false;preview();};
   ['wait-mode','timeout','lifetime','actor'].forEach(id=>$(id).oninput=preview);
-  const overrides=Object.entries(spec.provider_options);
-  function drawOptions() {
-    const parent=$('provider-options');parent.replaceChildren();
-    overrides.forEach((entry,i)=>{
-      const line=el('div','',{class:'condition-fields'});parent.append(line);
-      field(line,'Option',entry[0],v=>entry[0]=v);
-      field(line,'Value',typeof entry[1]==='string'?entry[1]:JSON.stringify(entry[1]),v=>{try{entry[1]=JSON.parse(v);}catch{entry[1]=v;}});
-      line.append(button('×',()=>{overrides.splice(i,1);drawOptions();preview();},'Remove option'));
-    });
-    const known=[...new Set(data.providers.flatMap(p=>[...Object.keys(p.config),...Object.keys(p.fields)]))].sort();
-    const select=field(parent,'Provider option',known[0]||'',()=>{},known.map(k=>[k,k]));
-    parent.append(button('＋ Option',()=>{overrides.push([select.value,'']);drawOptions();preview();}));
+  function jsonObject(id) {
+    const value=JSON.parse($(id).value);
+    if(!value || Array.isArray(value) || typeof value!=='object') throw new Error('Enter a JSON object.');
+    return value;
   }
-  drawOptions();
-  let advanced = spec.require_all.length > 0 || spec.prefer.length > 0;
-  let guide = {provider:'',persona:'',country:'',sites:[{site:'',age:5,mode:'all',minimum:1,importance:{}}]};
+  function advancedConditions() {
+    const value=jsonObject('advanced-conditions');
+    if(Object.keys(value).some(k=>!['require_all','prefer'].includes(k)) || !Array.isArray(value.require_all) || !Array.isArray(value.prefer))
+      throw new Error('Conditions need require_all and prefer arrays.');
+    return value;
+  }
+  $('provider-options').value=JSON.stringify(spec.provider_options,null,2);
+  $('advanced-conditions').value=JSON.stringify({require_all:spec.require_all,prefer:spec.prefer},null,2);
+  ['provider-options','advanced-conditions'].forEach(id=>$(id).oninput=preview);
+  const newSite=()=>({site:'',age:'',mode:'all',minimum:1,importance:{}});
+  let guide = readGuidedConditions(spec);
+  let advanced = !guide && (spec.require_all.length>0 || spec.prefer.length>0);
+  guide ||= {provider:'',persona:'',country:'',sites:[newSite()]};
   function availableTasks(site) {
     return data.tasks.filter(t=>t.site===site && (!guide.provider||t.provider===guide.provider) && (!guide.persona||t.persona===guide.persona));
   }
@@ -145,19 +77,19 @@ document.addEventListener('click', async event => {
     }
     return {require_all,prefer};
   }
-  function readGuidedConditions() {
+  function readGuidedConditions(conditions) {
     const next={provider:'',persona:'',country:'',sites:[]};
-    for(const c of spec.require_all) {
+    for(const c of conditions.require_all) {
       if(['provider','persona'].includes(c.type) && Object.keys(c).every(k=>['type','id'].includes(k)) && !next[c.type]) next[c.type]=c.id;
       else if(c.type==='ip' && Object.keys(c).every(k=>['type','country'].includes(k)) && !next.country) next.country=c.country;
-      else if(c.type==='task' && !next.sites.some(s=>s.site===c.site) && (!c.min_passed||c.tasks==='*')) {
+      else if(c.type==='task' && Object.keys(c).every(k=>['type','site','tasks','status','max_age','min_passed'].includes(k)) && !next.sites.some(s=>s.site===c.site) && (!c.min_passed||c.tasks==='*')) {
         const names=data.tasks.filter(t=>t.site===c.site).map(t=>t.name);
         if(c.tasks!=='*' && !c.tasks.every(n=>names.includes(n))) return null;
         next.sites.push({site:c.site,age:c.max_age===undefined?'':c.max_age/60,mode:c.min_passed?'minimum':c.tasks==='*'?'all':'choose',minimum:c.min_passed||1,
           importance:Object.fromEntries([...new Set(names)].map(n=>[n,c.tasks==='*'||c.tasks.includes(n)?'required':'ignore']))});
       } else return null;
     }
-    for(const c of spec.prefer) {
+    for(const c of conditions.prefer) {
       const s=next.sites.find(s=>s.site===c.site);
       if(c.type!=='task'||!s||s.mode!=='choose'||!Array.isArray(c.tasks)||c.min_passed||c.max_age!==(s.age===''?undefined:s.age*60)) return null;
       for(const name of c.tasks) {
@@ -187,7 +119,7 @@ document.addEventListener('click', async event => {
       if(s.site) head.append(el('img','',{src:`https://www.google.com/s2/favicons?domain=${encodeURIComponent(s.site)}&sz=64`,alt:'',width:22,height:22}));
       const others=guide.sites.filter(v=>v!==s).map(v=>v.site);
       field(head,'Site',s.site,v=>{s.site=v;s.importance={};drawSites();},[['','Select a site'],...sites.filter(v=>!others.includes(v)).map(v=>[v,v])]);
-      const age=field(head,'Checked within',s.age,v=>{s.age=v;},null,'number');age.min=0;age.step='any';age.placeholder='Task interval';age.parentElement.append(el('small','minutes'));
+      const age=field(head,'Checked within',s.age,v=>{s.age=v;},null,'number');age.min=0;age.step='any';age.placeholder='Schedule';age.parentElement.append(el('small','min'));age.title='Leave blank to use each check’s schedule';
       if(guide.sites.length>1) head.append(button('×',()=>{guide.sites.splice(index,1);drawSites();preview();},'Remove site'));
       if(!s.site) return;
       const names=namesFor(s.site,s.mode==='choose'?s.importance:{}), rule=el('div','',{class:'site-check-rule condition-fields'});section.append(rule);
@@ -217,21 +149,23 @@ document.addEventListener('click', async event => {
   }
   function renderMode() {
     $('guided-builder').hidden=advanced;$('advanced-builder').hidden=!advanced;
-    for(const id of ['guided-builder','advanced-builder']) $(id).querySelectorAll('input,select').forEach(input=>{input.disabled=$(id).hidden;});
+    for(const id of ['guided-builder','advanced-builder']) $(id).querySelectorAll('input,select,textarea').forEach(input=>{input.disabled=$(id).hidden;});
     $('guided-mode').setAttribute('aria-pressed',String(!advanced));$('advanced-mode').setAttribute('aria-pressed',String(advanced));
   }
   $('advanced-mode').onclick=()=>{
     if(advanced)return;
-    Object.assign(spec,guidedConditions());advanced=true;
-    list($('required-conditions'),spec.require_all);list($('preferred-conditions'),spec.prefer,true);renderMode();preview();
+    $('advanced-conditions').value=JSON.stringify(guidedConditions(),null,2);advanced=true;renderMode();preview();
   };
   $('guided-mode').onclick=()=>{
     if(!advanced)return;
-    const parsed=readGuidedConditions();
-    if(!parsed){$('builder-error').textContent='These conditions need the advanced editor.';return;}
-    guide=parsed;advanced=false;drawBrowser();drawSites();renderMode();preview();
+    try {
+      const parsed=readGuidedConditions(advancedConditions());
+      if(!parsed)throw new Error('These conditions need the advanced editor.');
+      guide=parsed;advanced=false;drawBrowser();drawSites();renderMode();preview();
+    } catch(error) { $('builder-error').textContent=error.message; }
   };
-  $('add-site').onclick=()=>{guide.sites.push({site:'',age:5,mode:'all',minimum:1,importance:{}});drawSites();preview();};
+  $('add-site').onclick=()=>{guide.sites.push(newSite());drawSites();preview();};
+  $('preview-recheck').onclick=()=>{$('recheck').checked=true;$('recheck').onchange();};
   function summary() {
     const parent=$('session-summary');parent.replaceChildren();
     const name=(kind,id)=>data[kind].find(v=>v.id===id)?.name;
@@ -245,14 +179,26 @@ document.addEventListener('click', async event => {
   }
   drawBrowser();drawSites();renderMode();
   function documentValue() {
-    const options=Object.create(null);
-    for(const [key,value] of overrides){const [root,nested]=key.split('.');if(nested)(options[root]||={})[nested]=value;else options[root]=value;}
-    return {...spec,...(advanced?{}:guidedConditions()),provider_options:options,recheck:$('recheck').checked,allow_unhealthy:$('allow-unhealthy').checked,
+    return {...spec,...(advanced?advancedConditions():guidedConditions()),provider_options:jsonObject('provider-options'),recheck:$('recheck').checked,allow_unhealthy:$('allow-unhealthy').checked,
       timeout:Number($('wait-mode').value==='custom'?$('timeout').value:$('wait-mode').value),lifetime:Number($('lifetime').value),actor:$('actor').value};
+  }
+  let previewTimer, previewRequest;
+  async function availability(value, signal) {
+    try {
+      const response=await fetch('/sessions/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value),signal});
+      if(!response.ok)throw new Error(response.status===400?(await response.json()).error:'Availability could not be loaded.');
+      const html=await response.text();
+      if(!signal.aborted)$('request-availability').innerHTML=html;
+    } catch(error) {if(!signal.aborted)$('request-availability').textContent=error.message;}
   }
   function preview() {
     $('timeout').hidden=$('wait-mode').value!=='custom';
-    const value=documentValue();$('request-preview').textContent=JSON.stringify(value,null,2);$('request-document').value=JSON.stringify(value);
+    clearTimeout(previewTimer);previewRequest?.abort();
+    let value;
+    try { value=documentValue(); } catch(error) {
+      $('builder-error').textContent=error.message;$('create-session').disabled=true;$('request-availability').replaceChildren();return false;
+    }
+    $('request-preview').textContent=JSON.stringify(value,null,2);$('request-document').value=JSON.stringify(value);
     let error=value.recheck&&value.timeout===0?'Recheck needs time to complete.':'';
     if(!advanced) {
       for(const s of guide.sites) {
@@ -265,7 +211,16 @@ document.addEventListener('click', async event => {
       summary();
     }
     $('builder-error').textContent=error;
-    $('create-session').disabled=!!$('builder-error').textContent;
+    $('create-session').disabled=!!error;
+    $('preview-recheck').hidden=!!error||value.recheck||value.allow_unhealthy;
+    if(error) $('request-availability').replaceChildren();
+    else {
+      $('request-availability').textContent='Checking availability…';
+      previewRequest=new AbortController();
+      const signal=previewRequest.signal;
+      previewTimer=setTimeout(()=>availability(value,signal),250);
+    }
+    return !error;
   }
-  form.addEventListener('submit',preview);preview();
+  form.addEventListener('submit',event=>{if(!preview())event.preventDefault();});preview();
 })();

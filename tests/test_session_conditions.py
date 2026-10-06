@@ -86,3 +86,46 @@ def test_quorum_and_preferred_tasks_use_real_check_history():
     # Preferences still see configured checks outside the required selector.
     selected = assess(partial, [{'type': 'task', 'site': 'x.com', 'tasks': '*', 'max_age': 0}])[3]
     assert any(c.account.site.domain == 'x.com' for c in selected)
+
+
+def test_selection_reports_only_the_requested_provider_with_check_evidence():
+    from app.core.models import Check
+    from app.core.session_conditions import candidates
+    task = Check.query.filter(provider__kind='anchor', mode='check', enabled=True).first()
+    assert task
+    spec = validate({'require_all': [
+        {'type': 'persona', 'id': str(task.account.persona.uid)},
+        {'type': 'provider', 'id': str(task.provider.uid)},
+        {'type': 'task', 'site': task.account.site.domain, 'max_age': 0},
+    ]})
+    rows = candidates(spec)
+    assert len(rows) == 1 and rows[0]['provider'].id == task.provider.id
+    issue = rows[0]['unmet'][0]
+    assert issue['checks'][0]['name'] == task.name
+    assert issue['checks'][0]['ended_at'] and issue['checks'][0]['result_id']
+    assert issue['condition']['site'] == task.account.site.domain
+
+
+def test_satisfied_alternatives_are_not_reported_as_unmet():
+    from uuid import uuid4
+
+    from app.core.models import Check
+    from app.core.session_conditions import evaluate
+    task = Check.query.filter(provider__kind='cdp', mode='check').first()
+    alternatives = {'require_any': [
+        {'type': 'provider', 'id': str(uuid4())},
+        {'type': 'provider', 'id': str(task.provider.uid)},
+    ]}
+    spec = validate({'require_all': [alternatives], 'allow_unhealthy': True})
+    ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
+    assert ok and unmet == []
+    # A failing sibling remains visible even when an alternative group passes.
+    spec['require_all'].append({'type': 'persona', 'id': str(uuid4())})
+    ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
+    assert not ok and len(unmet) == 1 and unmet[0]['pointer'] == '/require_all/1'
+    spec['require_all'] = [{'not': alternatives}]
+    ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
+    assert not ok and len(unmet) == 1
+    spec['require_all'] = [{'not': {'require_all': alternatives['require_any']}}]
+    ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
+    assert ok and unmet == []

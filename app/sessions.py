@@ -1,17 +1,18 @@
 """Plain UI for the same session requests accepted by the HTTP API."""
 import json
+from copy import deepcopy
 from hashlib import sha256
 from uuid import UUID
 
 from plain import forms
-from plain.http import NotFoundError404, RedirectResponse, Response
+from plain.http import JsonResponse, NotFoundError404, RedirectResponse, Response
 from plain.templates.views import FormView
 
 from .core import health, network
 from .core import session_broker as broker
 from .core.models import Check, CheckRun, Persona, Provider, SessionRequest
 from .core.providers import adapter
-from .core.session_conditions import validate
+from .core.session_conditions import candidates, validate
 from .views import Base
 
 
@@ -24,6 +25,50 @@ class SessionRequestForm(forms.Form):
             return validate(self.cleaned_data['document'])
         except (ValueError, TypeError, KeyError) as exc:
             raise forms.ValidationError(str(exc)) from None
+
+
+def availability(rows):
+    """Present recorded condition evidence, without exposing internal JSON pointers."""
+    labels = {'stale': 'Check too old', 'failed': 'Check failed', 'pending': 'Not checked yet',
+        'changed': 'Browser or check changed', 'no_checks': 'Checks not configured',
+        'not_enough_checks': 'Not enough configured checks', 'not_enough_passing_checks': 'Not enough passing checks',
+        'geolocation_unavailable': 'IP location lookup unavailable', 'unknown_location': 'IP location unknown',
+        'unknown_ip': 'IP address unknown', 'not_matched': 'Does not match'}
+    result_ids = {c['result_id'] for row in rows for issue in row['unmet'] for c in issue.get('checks', []) if c.get('result_id')}
+    results = {r.id: r for r in CheckRun.query.filter(id__in=result_ids).join('run')}
+    for row in rows:
+        for issue in row['unmet']:
+            condition = issue.get('condition', {})
+            issue['label'] = condition.get('site', 'IP' if condition.get('type') == 'ip' else 'Browser') if isinstance(condition, dict) else 'Checks'
+            issue['message'] = labels.get(issue['reason'], issue['reason'])
+            issue['value'] = ' · '.join(str(condition[k]) for k in ('country', 'state', 'city', 'ip') if k in condition) if isinstance(condition, dict) else ''
+            for check in issue.get('checks', []):
+                result = results.get(check.get('result_id'))
+                if result:
+                    check.update(image=health.result_image(result)[0], url=f'/runs/{result.run.id}/checks/{result.check_id}',
+                                 at=health.time_label(result.ended_at), age_limit=f"{check['max_age'] / 60:g} min")
+    return rows
+
+
+class SessionPreview(Base):
+    template_name = 'session_availability.html'
+
+    def get(self):
+        return Response(status_code=405)
+
+    def post(self):
+        try:
+            self.spec = validate(self.request.json_data)
+        except (ValueError, TypeError, KeyError) as exc:
+            return JsonResponse({'error': str(exc)}, status_code=400)
+        response = super().get()
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    def get_template_context(self):
+        rows = broker.diagnostics(candidates(self.spec))
+        return {**super().get_template_context(), 'availability': availability(rows),
+                'recheck': self.spec['recheck'], 'geo_error': network.database_error()}
 
 
 class SessionEditor(Base, FormView):
@@ -41,12 +86,21 @@ class SessionEditor(Base, FormView):
                 unavailable = ''
             except ValueError as exc:
                 unavailable = str(exc)
-            providers.append({'id': str(p.uid), 'name': p.name, 'fields': runtime.network_fields,
-                              'unavailable': unavailable, 'config': p.config})
+            providers.append({'id': str(p.uid), 'name': p.name, 'unavailable': unavailable})
         document = self.request.form_data.get('document') if self.request.method == 'POST' else None
+        source = None
+        if self.request.method == 'GET' and self.request.query_params.get('request'):
+            try:
+                source = SessionRequest.query.filter(uid=UUID(self.request.query_params['request'])).first()
+            except ValueError:
+                raise NotFoundError404() from None
+            if source is None:
+                raise NotFoundError404()
         try:
-            initial = json.loads(document) if document else {'require_all': [], 'prefer': [], 'timeout': 60, 'lifetime': 1800}
-            validate(initial)
+            initial = json.loads(document) if document else deepcopy(source.spec) if source else {'timeout': 60, 'lifetime': 1800, 'actor': 'UI'}
+            if source and self.request.query_params.get('recheck') == '1':
+                initial.update(recheck=True, allow_unhealthy=False, timeout=initial['timeout'] or 60)
+            initial = validate(initial)
         except (ValueError, TypeError, KeyError):
             initial = {'require_all': [], 'prefer': []}
         checks = list(Check.query.filter(enabled=True, mode='check').join('account__site', 'account__persona', 'provider'))
@@ -104,13 +158,15 @@ class SessionView(Base):
                         'at': latest.ended_at, 'cached': latest.run.id != row.run.id})
         labels = {'queued': 'Waiting', 'preparing': 'Preparing', 'ready': 'Ready', 'releasing': 'Releasing',
                   'finalizing': 'Checking in', 'closed': 'Closed', 'failed': 'Unavailable', 'cancelled': 'Cancelled'}
+        rows = broker.diagnostics(candidates(row.spec)) if not row.run else [{
+            'persona': row.run.persona.name, 'provider': row.run.provider.name,
+            'eligible': False, 'unmet': deepcopy(row.detail.get('unmet', []))}] if row.detail.get('unmet') else []
         return {**super().get_template_context(), 'nav': 'runs', 'session_request': row, 'connection': state, 'evidence': evidence,
+                'availability': availability(rows), 'recheck': row.spec['recheck'], 'geo_error': network.database_error(),
                 'state_version': self.state_version,
                 'ips': [network.label(ip['ip'], ip['geo']) for ip in state['ips']],
                 'status_label': labels[row.status], 'pending': row.status not in broker.TERMINAL,
-                'tone': 'success' if row.status == 'ready' else 'failed' if row.status == 'failed' else 'neutral',
-                'personas_by_uid': {str(p.uid): p.name for p in Persona.query.all()},
-                'providers_by_uid': {str(p.uid): p.name for p in Provider.query.all()}}
+                'tone': 'success' if row.status == 'ready' else 'failed' if row.status == 'failed' else 'neutral'}
 
     def get(self):
         response = super().get()

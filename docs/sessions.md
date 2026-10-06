@@ -15,11 +15,14 @@ In the app, **Browser Sessions → New session** opens the same request builder 
 `/edit/session`. Choose a provider (or any), persona (or any), site and maximum check
 age. Require all checks, at least N, or choose which checks are required, preferred
 or ignored. Add another site when needed; IP country applies to the whole session.
-The form shows the real check names and their latest screenshots. **Advanced conditions**
-supports All/Any/Except groups and ordered preferences. Set rechecking, wait time,
+Leave the age blank to follow each check's schedule. The form previews matching
+browsers and shows blocked requirements with their last check screenshots and times,
+without allocating a session. **Advanced conditions** edits the condition JSON for
+All/Any/Except groups and ordered preferences. Set rechecking, wait time,
 lifetime and provider overrides, then create the session. The result page shows readiness
 screenshots, copyable CDP/context IDs, expiry and check-in controls. **API request**
-shows the equivalent JSON.
+shows the equivalent JSON. Failed requests can be reopened with **Edit request** or
+**Recheck before use**, preserving the requested provider, persona, sites and IP.
 
 Use the existing API bearer token from the private configuration directory.
 `GET /api/personas` and `GET /api/providers` include public UUIDs. Numeric IDs also

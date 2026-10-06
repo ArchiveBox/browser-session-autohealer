@@ -26,8 +26,24 @@ def lookup(ip, path, version):
                 'database_build': reader.metadata().build_epoch}
 
 
+def database_path():
+    return Path(os.environ.get('MAXMIND_CITY_DB', '~/.local/share/GeoIP/GeoLite2-City.mmdb')).expanduser()
+
+
+def database_error():
+    path = database_path()
+    if not path.is_file():
+        return 'database_missing'
+    try:
+        with maxminddb.open_database(path) as reader:
+            reader.metadata()
+    except (ValueError, OSError, maxminddb.InvalidDatabaseError):
+        return 'database_invalid'
+    return ''
+
+
 def geolocate(ip):
-    path = Path(os.environ.get('MAXMIND_CITY_DB', '~/.local/share/GeoIP/GeoLite2-City.mmdb')).expanduser()
+    path = database_path()
     if not path.is_file():
         return {'unavailable': 'database_missing'}
     try:
