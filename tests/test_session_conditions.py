@@ -80,6 +80,8 @@ def test_quorum_and_preferred_tasks_use_real_check_history():
     assert not assess({**partial, 'tasks': [missing]})[0]
     optional = {**required, 'max_age': 0}
     assert assess(required, [optional])[:2] == (True, (False,))
+    preparing = validate({'require_all': [required], 'prefer': [optional], 'recheck': True})
+    assert evaluate(preparing, task.account.persona, task.provider, preparing=True)[:2] == (True, (False,))
     assert assess(partial, [required])[:2] == (True, (True,))
     # Preferences still see configured checks outside the required selector.
     selected = assess(partial, [{'type': 'task', 'site': 'x.com', 'tasks': '*', 'max_age': 0}])[3]

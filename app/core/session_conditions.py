@@ -207,7 +207,7 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
             minimum = c.get('min_passed', len(selected))
             if not selected or ('min_passed' not in c and not complete):
                 ok, reason = False, 'no_checks'
-            elif preparing and spec['recheck'] or spec['allow_unhealthy']:
+            elif path.startswith('/require_all') and ((preparing and spec['recheck']) or spec['allow_unhealthy']):
                 ok, reason = len(selected) >= minimum, 'not_enough_checks'
             else:
                 states = [task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))[0] for t in selected]
