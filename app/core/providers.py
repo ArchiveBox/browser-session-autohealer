@@ -122,6 +122,15 @@ class CDPAdapter:
         "sessionStorage": True, "indexedDB": False, "opfs": False, "screencast": True,
     }
     network_fields: ClassVar[dict] = {}
+    network_config_fields: ClassVar[set] = set()
+
+    def task_health_config(self, config):
+        """Compare browser configuration while network requirements are checked live."""
+        return {key: value for key, value in config.items() if key not in self.network_config_fields}
+
+    def location_options(self, location, config):
+        """Routing is adapter-owned; plain CDP uses the browser's existing network."""
+        return {}
 
     def validate_handoff(self, config):
         self.validate_config(config)
@@ -397,7 +406,23 @@ class Local(CDPAdapter):
 
 
 class Browserbase(CDPAdapter):
+    network_config_fields: ClassVar[set] = {'residential_proxies', 'proxy_country', 'proxy_state', 'proxy_city'}
     network_fields: ClassVar[dict] = {'proxy_country': 'Country', 'proxy_state': 'State', 'proxy_city': 'City'}
+
+    def location_options(self, location, config):
+        country = location.get('country') or config.get('proxy_country')
+        if not country or not any(location.get(field) for field in ('country', 'state', 'city')):
+            return {}
+        country = country.upper()
+        state = (location.get('state') or '').upper().removeprefix('US-')
+        # Browserbase supports subdivision routing only for US state codes.
+        return {
+            'residential_proxies': True,
+            'proxy_country': country,
+            'proxy_state': state if country == 'US' and re.fullmatch('[A-Z]{2}', state) else None,
+            'proxy_city': location.get('city') or None,
+        }
+
     label = "Browserbase"
     description = "An isolated cloud browser with portable site data and an interactive live view."
     config_help = "Set project_id, region, verified (true/false) and residential_proxies (true/false). Store BROWSERBASE_API_KEY in the ignored .env file. Verified and residential proxies default to enabled; unsupported plans fail explicitly. Native IndexedDB and OPFS transfer are not supported."

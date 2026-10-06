@@ -21,6 +21,9 @@ def test_fresh_checks_cannot_be_requested_without_passing():
 @pytest.mark.parametrize('spec', [
     {'require_al': []}, {'timeout': True}, {'timeout': -2},
     {'require_all': [{'type': 'ip', 'country': 'usa'}]},
+    {'require_all': [{'type': 'ip', 'country': 'US', 'state': 123}]},
+    {'require_all': [{'type': 'ip', 'country': 'US', 'city': 123}]},
+    {'require_all': [{'type': 'ip', 'country': 'US', 'city': '  '}]},
     {'require_all': [{'type': 'ip', 'site': 'x.com', 'country': 'US'}]},
     {'require_all': [{'type': 'ip', 'source': 'last_successful_session', 'country': 'US'}]},
     {'require_all': [{'type': 'ip', 'max_age': 60, 'country': 'US'}]},
@@ -119,6 +122,7 @@ def test_satisfied_alternatives_are_not_reported_as_unmet():
     spec = validate({'require_all': [alternatives], 'allow_unhealthy': True})
     ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
     assert ok and unmet == []
+
     # A failing sibling remains visible even when an alternative group passes.
     spec['require_all'].append({'type': 'persona', 'id': str(uuid4())})
     ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
@@ -129,3 +133,48 @@ def test_satisfied_alternatives_are_not_reported_as_unmet():
     spec['require_all'] = [{'not': {'require_all': alternatives['require_any']}}]
     ok, _, unmet, _, _ = evaluate(spec, task.account.persona, task.provider)
     assert ok and unmet == []
+
+
+def test_location_conditions_configure_the_selected_provider():
+    from app.core.models import Check
+    from app.core.session_conditions import evaluate
+    task = Check.query.filter(provider__kind='browserbase', mode='check', enabled=True).first()
+    assert task
+    spec = validate({'require_all': [{'type': 'ip', 'country': 'US', 'state': 'New Jersey'}],
+                     'prefer': [{'type': 'ip', 'country': 'CA'}], 'recheck': True})
+    ok, _, _, _, config = evaluate(spec, task.account.persona, task.provider, preparing=True)
+    assert ok
+    assert config.get('proxy_country') == 'US'
+    assert config.get('proxy_state') == 'NJ'
+    assert config.get('residential_proxies') is True
+    assert spec['require_all'][0]['state'] == 'NJ'
+
+    # Split constraints combine; ordered preferences select a compatible alternative.
+    spec = validate({'require_all': [{'require_any': [{'type': 'ip', 'country': c} for c in ('US', 'CA')]}],
+                     'prefer': [{'type': 'ip', 'country': 'CA'}], 'recheck': True})
+    assert evaluate(spec, task.account.persona, task.provider, preparing=True)[4]['proxy_country'] == 'CA'
+    spec = validate({'require_all': [{'type': 'ip', 'country': 'US', 'state': 'CA'},
+                                    {'type': 'ip', 'state': 'California'}], 'recheck': True})
+    assert evaluate(spec, task.account.persona, task.provider, preparing=True)[4]['proxy_state'] == 'CA'
+    spec['require_all'].append({'type': 'ip', 'country': 'GB'})
+    with pytest.raises(ValueError, match='Location requirements conflict'):
+        evaluate(spec, task.account.persona, task.provider, preparing=True)
+
+
+def test_ip_preferences_rank_routable_providers_without_changing_browser_identity():
+    from app.core.models import Check, Provider
+    from app.core.providers import adapter
+    from app.core.session_conditions import evaluate
+    task = Check.query.filter(provider__kind='browserbase', mode='check', enabled=True).first()
+    spec = validate({'prefer': [{'type': 'ip', 'country': 'CA'}, {'type': 'ip', 'country': 'US'}], 'recheck': True})
+    score = evaluate(spec, task.account.persona, task.provider, preparing=True)[1]
+    assert score == (True, False)
+    local = Provider.query.filter(kind='local').get()
+    assert evaluate(spec, task.account.persona, local, preparing=True)[1] == (False, False)
+    for provider in Provider.query.all():
+        runtime = adapter(provider)
+        original = dict(provider.config)
+        changed = {**original, **runtime.location_options({'country': 'CA'}, original)}
+        changed = {k: v for k, v in changed.items() if v is not None}
+        assert runtime.task_health_config(original) == runtime.task_health_config(changed)
+        assert runtime.task_health_config({**changed, 'stealth': False}) != runtime.task_health_config({**changed, 'stealth': True})

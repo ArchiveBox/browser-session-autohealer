@@ -38,15 +38,46 @@ For an existing Kernel proxy and a supported region:
 | `timeout_seconds` | Integer from 10 to 259200 | `1800` |
 | `region` | `us-east`, `eu-west`, `ap-southeast` | Omitted; Kernel chooses its default |
 | `proxy` | Exactly one of `{"mode":"direct"}`, `{"mode":"default"}`, `{"id":"…"}`, or `{"name":"…"}` | Omitted |
+| `proxy_country` | Uppercase two-letter country code; selects managed residential routing instead of `proxy` | Omitted |
+| `proxy_state` | Two-letter uppercase state code; requires `proxy_country` | Omitted |
+| `proxy_city` | City name without spaces; requires `proxy_country` | Omitted |
 
 With stealth enabled and `proxy` omitted, Kernel uses its default static ISP proxy,
 which keeps one exit IP for the session.
 An explicit proxy ID or name selects an existing proxy in the browser's project;
-the adapter does not create a residential proxy. Configure a residential proxy in
-Kernel first, then select its ID or name here; Kernel documents that residential
+without geographic overrides. Alternatively, managed geography causes the adapter
+to look up a deterministically named residential proxy with exactly matching
+configuration, then create it through `POST /proxies` if absent. Its stable ID is
+passed to `POST /browsers`. This proxy configuration is retained for reuse after
+browser termination; it is not a new proxy per session. Kernel documents that residential
 proxy exit IPs rotate per connection. `{"mode":"direct"}` forces direct egress while preserving the selected
 stealth setting. Region selection and some browser features depend on the Kernel
-plan; API errors surface explicitly without silently changing the requested mode.
+plan. Explicit saved proxy selections preserve API failures. For automatically
+requested managed location routing, an explicit HTTP 403 `insufficient_plan`
+falls back to Kernel's default route with a stored `location_routing_unavailable`
+diagnostic and clears the unapplied routing fields from runtime configuration.
+The request's desired location remains intact and independently enforced.
+
+On October 6, 2026, the development account accepted managed residential proxy
+configuration but rejected browser creation with that proxy using HTTP 403
+`insufficient_plan`. This account therefore cannot prove managed residential
+country/state/city targeting. Observed default-route geography can satisfy a
+request, but does not establish paid routing support.
+Real required-US and preferred-US requests both passed direct client connection,
+independent observed-country verification, two authenticated HN checks, state
+export, leader promotion and confirmed closure (runs 184 and 189). A required-CA
+request observed US, returned `conditions_unmet`, ran no account checks, exported
+and closed without promotion (run 194). Its unapplied routing configuration was
+cleared and the plan diagnostic retained.
+
+Required session locations replace inherited proxy geography and saved proxy
+selection. Country, two-letter state and city (lowercase without spaces) become
+managed residential proxy hints. Longer subdivision codes cannot be represented
+by Kernel's two-letter state field and are omitted; country and city remain best
+effort. Kernel's browser `region` selects infrastructure, not egress geography.
+Arbitrary exact IP selection is unavailable. Required conditions still compare
+the browser's observed exit IP and independently resolved geography; routing hints
+do not prove those conditions passed.
 
 The persona's viewport and other supported browser settings are applied to check
 tabs through CDP, independently of Kernel's desktop live-view resolution. The

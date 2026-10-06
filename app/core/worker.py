@@ -4,7 +4,7 @@ from contextlib import ExitStack
 
 from plain.postgres import transaction
 
-from . import inference, services, storage
+from . import inference, network, services, storage
 from .models import Check, Persona, Run
 from .providers import adapter, browser_command, watch_browser
 
@@ -206,6 +206,7 @@ def execute(run):
 
 def loop(once=False, *, schedule=True):
     while True:
+        network.ensure_database()
         if schedule:
             schedule_due()
         run = claim()

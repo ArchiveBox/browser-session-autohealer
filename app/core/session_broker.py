@@ -69,6 +69,7 @@ def state(request):
                       checkpoint=run.base.digest, started_at=run.started_at.isoformat() if run.started_at else None,
                       ended_at=run.finished_at.isoformat() if run.finished_at else None,
                       promoted=run.promoted, promotion_reason=run.promotion_reason,
+                      location_notes=run.runtime.get('provider_location_diagnostics', []),
                       results=[{'task_id': str(p['uid']), 'name': p['name'], 'status': o.status, 'ended_at': o.ended_at.isoformat() if o.ended_at else None,
                                 'url': f'/runs/{run.id}/checks/{o.check_id}'}
                                for o in CheckRun.query.filter(run=run) for p in run.plan if p['id'] == o.check_id],
@@ -174,15 +175,21 @@ def prepare(request_id):
         run.update(fields=['runtime'])
         start_watch(run, saved)
         stage = 'network'
-        network.observe(run)
+        observation = network.observe(run)
         # Resolve reachability before handing out a dead/internal Docker address.
         runtime.connection(run)
+        # Reject the wrong network before navigating to any account or spending inference.
+        ok, _, unmet, _, _ = evaluate(request.spec, persona, provider, run=run, preparing=True, observation=observation)
+        if not ok:
+            update(request_id, detail={'code': 'conditions_unmet', 'unmet': unmet})
+            raise RuntimeError('Required conditions were not satisfied')
         if request.spec['recheck']:
             stage = 'recheck'
             run_checks(run, saved, request_id)
+            observation = network.observe(run)
         run = Run.query.get(id=run.id)
         stage = 'conditions'
-        ok, _, unmet, _, _ = evaluate(request.spec, persona, provider, run=run)
+        ok, _, unmet, _, _ = evaluate(request.spec, persona, provider, run=run, observation=observation)
         current = SessionRequest.query.get(id=request_id)
         if (storage.data_root() / 'runs' / str(run.id) / 'session-settings-error').exists():
             raise RuntimeError('Persona settings could not be applied')
@@ -222,13 +229,14 @@ def prepare(request_id):
 
 def finalize(request_id, *, failed=False):
     request = SessionRequest.query.get(id=request_id)
+    failed = failed or bool(request.detail.get('stage'))
     run = request.run
     if not run:
         return update(request_id, status='cancelled')
     if run.checked_in_at:
         return update(request_id, status='failed' if failed else 'closed')
     runtime = adapter(run.provider)
-    work = storage.data_root() / 'runs' / str(run.id)
+    work = storage.private_dir(storage.data_root() / 'runs' / str(run.id))
     saved = select_state(storage.read_state(run.base.digest), run.runtime['settings'].get('siteScope'))
     exported = None
     stopped = False

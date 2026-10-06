@@ -154,7 +154,7 @@ class SessionView(Base):
         return {**super().get_template_context(), 'nav': 'runs', 'session_request': row, 'connection': state, 'evidence': evidence,
                 'availability': availability(rows), 'recheck': row.spec['recheck'], 'geo_error': network.database_error(),
                 'state_version': self.state_version,
-                'ips': [network.label(ip['ip'], ip['geo']) for ip in state['ips']],
+                'ips': [network.label(ip['ip'], ip['geo']) for ip in {o['ip']: o for o in state['ips']}.values()],
                 'status_label': labels[row.status], 'pending': row.status not in broker.TERMINAL,
                 'tone': 'success' if row.status == 'ready' else 'failed' if row.status == 'failed' else 'neutral'}
 

@@ -54,7 +54,7 @@ document.addEventListener('click', async event => {
   const newSite=()=>({site:'',age:'',mode:'all',minimum:1,importance:{}});
   let guide = readGuidedConditions(spec);
   let advanced = !guide && (spec.require_all.length>0 || spec.prefer.length>0);
-  guide ||= {provider:'',persona:'',country:'',sites:[newSite()]};
+  guide ||= {provider:'',persona:'',country:'',state:'',city:'',locationMode:'required',sites:[newSite()]};
   function availableTasks(site) {
     return data.tasks.filter(t=>t.site===site && (!guide.provider||t.provider===guide.provider) && (!guide.persona||t.persona===guide.persona));
   }
@@ -62,7 +62,8 @@ document.addEventListener('click', async event => {
   function guidedConditions() {
     const require_all=[], prefer=[];
     for(const type of ['provider','persona']) if(guide[type]) require_all.push({type,id:guide[type]});
-    if(guide.country) require_all.push({type:'ip',country:guide.country});
+    const location=Object.fromEntries(['country','state','city'].filter(k=>guide[k]).map(k=>[k,guide[k]]));
+    if(Object.keys(location).length) (guide.locationMode==='preferred'?prefer:require_all).push({type:'ip',...location});
     for(const s of guide.sites) {
       const task={type:'task',site:s.site,tasks:'*',status:'healthy'};
       if(s.age!=='') task.max_age=Math.round(Number(s.age)*60);
@@ -78,10 +79,14 @@ document.addEventListener('click', async event => {
     return {require_all,prefer};
   }
   function readGuidedConditions(conditions) {
-    const next={provider:'',persona:'',country:'',sites:[]};
+    const next={provider:'',persona:'',country:'',state:'',city:'',locationMode:'required',sites:[]};
+    function readLocation(c,mode) {
+      if(c.type!=='ip'||!Object.keys(c).every(k=>['type','country','state','city'].includes(k))||next.country||next.state||next.city) return false;
+      Object.assign(next,{country:c.country||'',state:c.state||'',city:c.city||'',locationMode:mode});return true;
+    }
     for(const c of conditions.require_all) {
       if(['provider','persona'].includes(c.type) && Object.keys(c).every(k=>['type','id'].includes(k)) && !next[c.type]) next[c.type]=c.id;
-      else if(c.type==='ip' && Object.keys(c).every(k=>['type','country'].includes(k)) && !next.country) next.country=c.country;
+      else if(readLocation(c,'required')) continue;
       else if(c.type==='task' && Object.keys(c).every(k=>['type','site','tasks','status','max_age','min_passed'].includes(k)) && !next.sites.some(s=>s.site===c.site) && (!c.min_passed||c.tasks==='*')) {
         const names=data.tasks.filter(t=>t.site===c.site).map(t=>t.name);
         if(c.tasks!=='*' && !c.tasks.every(n=>names.includes(n))) return null;
@@ -90,6 +95,7 @@ document.addEventListener('click', async event => {
       } else return null;
     }
     for(const c of conditions.prefer) {
+      if(readLocation(c,'preferred')) continue;
       const s=next.sites.find(s=>s.site===c.site);
       if(c.type!=='task'||!s||s.mode!=='choose'||!Array.isArray(c.tasks)||c.min_passed||c.max_age!==(s.age===''?undefined:s.age*60)) return null;
       for(const name of c.tasks) {
@@ -108,7 +114,10 @@ document.addEventListener('click', async event => {
     const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW';
     for(const code of countryCodes.split(' ')) countries.push([code,regions.of(code)]);
     countries.sort((a,b)=>a[1].localeCompare(b[1]));
-    field(parent,'IP country',guide.country,v=>{guide.country=v;},[['','Any country'],...countries]);
+    field(parent,'IP country',guide.country,v=>{guide.country=v;guide.state='';guide.city='';drawBrowser();},[['','Any country'],...countries]);
+    field(parent,'State / province',guide.state,v=>{guide.state=v;}).placeholder='Any state';
+    field(parent,'City',guide.city,v=>{guide.city=v;}).placeholder='Any city';
+    field(parent,'Location',guide.locationMode,v=>{guide.locationMode=v;},[['required','✓ Required'],['preferred','☆ Preferred']]);
   }
   function drawSites() {
     const parent=$('site-requirements');parent.replaceChildren();
@@ -169,7 +178,8 @@ document.addEventListener('click', async event => {
     const parent=$('session-summary');parent.replaceChildren();
     const name=(kind,id)=>data[kind].find(v=>v.id===id)?.name;
     parent.append(el('strong',name('providers',guide.provider)||'Any provider'),el('small',name('personas',guide.persona)||'Any persona'));
-    if(guide.country) parent.append(el('small',new Intl.DisplayNames(['en'],{type:'region'}).of(guide.country)+' IP'));
+    const location=[guide.city,guide.state,guide.country&&new Intl.DisplayNames(['en'],{type:'region'}).of(guide.country)].filter(Boolean).join(', ');
+    if(location) parent.append(el('small',`${guide.locationMode==='preferred'?'☆':'✓'} ${location} IP`));
     for(const s of guide.sites) if(s.site) {
       const item=el('div','',{class:'summary-site'}), names=namesFor(s.site,s.mode==='choose'?s.importance:{});
       const required=names.filter(n=>(s.importance[n]||'required')==='required').length, optional=names.filter(n=>s.importance[n]==='preferred').length;

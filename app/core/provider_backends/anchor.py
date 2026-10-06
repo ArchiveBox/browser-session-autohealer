@@ -12,7 +12,21 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Anchor(CDPAdapter):
+    network_config_fields: ClassVar[set] = {'proxy', 'country_code', 'proxy_region', 'proxy_city'}
     network_fields: ClassVar[dict] = {'country_code': 'Country', 'proxy_region': 'Region', 'proxy_city': 'City'}
+
+    def location_options(self, location, config):
+        country = location.get('country') or config.get('country_code')
+        if not country or not any(location.get(field) for field in ('country', 'state', 'city')):
+            return {}
+        state = (location.get('state') or '').removeprefix(country.upper() + '-').lower()
+        return {
+            'proxy': True,
+            'country_code': country.lower(),
+            'proxy_region': state or None,
+            # Anchor ignores a city unless a region accompanies it.
+            'proxy_city': location.get('city') if state else None,
+        }
 
     def session_lifetime(self, config):
         return config.get('max_duration', 30) * 60
@@ -21,7 +35,8 @@ class Anchor(CDPAdapter):
     description = "An isolated cloud browser with portable site data and an interactive live view."
     config_help = (
         "Store ANCHOR_BROWSER_API_KEY in the ignored .env file. Configure proxy, "
-        "extra_stealth, captcha_solver, country_code, headless, max_duration and idle_timeout. "
+        "extra_stealth, captcha_solver, country_code, proxy_region, proxy_city, headless, "
+        "max_duration and idle_timeout. City routing requires a region. "
         "Proxy and extra stealth default to enabled; CAPTCHA solving defaults to disabled. "
         "Timeouts are in minutes. Native IndexedDB and OPFS transfer are not supported."
     )

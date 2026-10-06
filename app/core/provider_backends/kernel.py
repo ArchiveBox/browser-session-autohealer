@@ -1,5 +1,7 @@
 """Fresh Kernel cloud browsers, driven by the shared CDP state-transfer tools."""
 
+import hashlib
+import json
 import os
 import re
 import time
@@ -12,7 +14,21 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Kernel(CDPAdapter):
-    network_fields: ClassVar[dict] = {'proxy.name': 'Saved proxy name'}
+    network_config_fields: ClassVar[set] = {'proxy', 'proxy_country', 'proxy_state', 'proxy_city'}
+    network_fields: ClassVar[dict] = {'proxy.name': 'Saved proxy name', 'proxy_country': 'Country', 'proxy_state': 'State', 'proxy_city': 'City'}
+
+    def location_options(self, location, config):
+        country = location.get('country') or config.get('proxy_country')
+        if not country or not any(location.get(field) for field in ('country', 'state', 'city')):
+            return {}
+        country = country.upper()
+        state = (location.get('state') or '').upper().removeprefix(country + '-')
+        return {
+            'proxy': None,
+            'proxy_country': country,
+            'proxy_state': state if re.fullmatch('[A-Z]{2}', state) else None,
+            'proxy_city': re.sub(r'\s+', '', location['city']).lower() if location.get('city') else None,
+        }
 
     def session_lifetime(self, config):
         return config.get('timeout_seconds', 1800)
@@ -23,7 +39,9 @@ class Kernel(CDPAdapter):
         "Store KERNEL_API_KEY in the ignored .env file. Optional settings: headless (false), "
         "stealth (true), timeout_seconds (1800), region (us-east, eu-west, ap-southeast), "
         "proxy ({mode: direct/default} or {id/name: an existing Kernel proxy}). Stealth uses "
-        "Kernel's default stealth proxy when proxy is omitted. Native profile, IndexedDB "
+        "Kernel's default stealth proxy when proxy is omitted. Alternatively set proxy_country "
+        "(uppercase ISO2), proxy_state (two-letter code), proxy_city (no spaces) to reuse or "
+        "create a managed residential proxy. Native profile, IndexedDB "
         "and OPFS transfer are not supported."
     )
 
@@ -41,7 +59,7 @@ class Kernel(CDPAdapter):
         }
 
     def validate_config(self, config):
-        unknown = set(config) - {"headless", "stealth", "timeout_seconds", "region", "proxy"}
+        unknown = set(config) - {"headless", "stealth", "timeout_seconds", "region", "proxy", "proxy_country", "proxy_state", "proxy_city"}
         if unknown:
             raise ValueError("Unsupported Kernel connection settings: " + ", ".join(sorted(unknown)))
         for key in ("headless", "stealth"):
@@ -63,6 +81,36 @@ class Kernel(CDPAdapter):
             for key in ("id", "name"):
                 if key in proxy and (not isinstance(proxy[key], str) or not proxy[key].strip()):
                     raise ValueError(f"Kernel proxy {key} must be a non-empty string")
+        if any(key in config for key in ('proxy_country', 'proxy_state', 'proxy_city')):
+            if 'proxy' in config:
+                raise ValueError('Choose Kernel proxy or managed proxy geography')
+            if not isinstance(config.get('proxy_country'), str) or not re.fullmatch('[A-Z]{2}', config['proxy_country']):
+                raise ValueError('Kernel proxy_country must be an uppercase two-letter country code')
+            if 'proxy_state' in config and (not isinstance(config['proxy_state'], str) or not re.fullmatch('[A-Z]{2}', config['proxy_state'])):
+                raise ValueError('Kernel proxy_state must be an uppercase two-letter state code')
+            if 'proxy_city' in config and (not isinstance(config['proxy_city'], str) or not config['proxy_city'] or re.search(r'\s', config['proxy_city'])):
+                raise ValueError('Kernel proxy_city must be a city name without spaces')
+
+    def location_proxy(self, config):
+        geography = {key: config['proxy_' + key] for key in ('country', 'state', 'city') if config.get('proxy_' + key)}
+        # Proxies are durable configuration, not one resource per browser.
+        name = 'autohealer-location-' + hashlib.sha256(json.dumps(geography, sort_keys=True).encode()).hexdigest()[:24]
+        offset = 0
+        while True:
+            response = self.api('GET', '/proxies', params={'name': name, 'limit': 100, 'offset': offset})
+            proxies = response.json()
+            if not isinstance(proxies, list):
+                raise RuntimeError('Kernel did not return a proxy list')  # noqa: TRY004 - malformed remote API response
+            for proxy in proxies:
+                if proxy.get('type') == 'residential' and proxy.get('config') == geography and not proxy.get('bypass_hosts') and proxy.get('id'):
+                    return {'id': proxy['id']}
+            if response.headers.get('X-Has-More', '').lower() != 'true':
+                break
+            offset += 100
+        result = self.api('POST', '/proxies', json={'name': name, 'type': 'residential', 'config': geography}).json()
+        if not isinstance(result.get('id'), str) or not result['id']:
+            raise RuntimeError('Kernel did not return a managed location proxy ID')
+        return {'id': result['id']}
 
     def api(self, method, path, *, allow_missing=False, **kwargs):
         key = os.environ.get("KERNEL_API_KEY")
@@ -92,22 +140,37 @@ class Kernel(CDPAdapter):
         return response
 
     def launch(self, run):
-        config = provider_config(run)
+        config = dict(provider_config(run))
         self.validate_config(config)
         # The collection owns browser state. Never attach a retained Kernel profile or pool.
-        result = self.api("POST", "/browsers", json={
+        options = {
             "headless": config.get("headless", False),
             "stealth": config.get("stealth", True),
             "timeout_seconds": config.get("timeout_seconds", 1800),
-            **{key: config[key] for key in ("region", "proxy") if key in config},
-        }).json()
+            **({'region': config['region']} if 'region' in config else {}),
+        }
+        routing = None
+        try:
+            proxy = self.location_proxy(config) if config.get('proxy_country') else config.get('proxy')
+            result = self.api('POST', '/browsers', json={**options, **({'proxy': proxy} if proxy else {})}).json()
+        except RuntimeError as error:
+            # Managed location hints are best effort on plans without proxy access.
+            # Required conditions still verify the observed egress before navigation.
+            if not config.get('proxy_country') or str(error) != 'Kernel returned HTTP 403 (insufficient_plan)':
+                raise
+            routing = [{'code': 'location_routing_unavailable',
+                'detail': 'Proxy location requires a higher Kernel plan; using the default route.'}]
+            for field in ('proxy_country', 'proxy_state', 'proxy_city'):
+                config.pop(field, None)
+            run.runtime['provider_config'] = config
+            result = self.api('POST', '/browsers', json=options).json()
         session_id, cdp = result.get("session_id"), result.get("cdp_ws_url")
         if not isinstance(session_id, str) or not session_id:
             raise RuntimeError("Kernel did not return a browser session ID")
         if not isinstance(cdp, str) or urlsplit(cdp).scheme != "wss":
             self.api("DELETE", "/browsers/" + quote(session_id, safe=""), allow_missing=True)
             raise RuntimeError("Kernel did not return a secure browser connection")
-        return {"session_id": session_id, "cdp": cdp}
+        return {"session_id": session_id, "cdp": cdp, **({'provider_location_diagnostics': routing} if routing else {})}
 
     def live_url(self, run):
         if provider_config(run).get("headless", False):

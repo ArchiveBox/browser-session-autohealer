@@ -3,6 +3,7 @@ import ipaddress
 import re
 from copy import deepcopy
 from functools import lru_cache
+from itertools import product
 
 from . import network, services, storage
 from .models import Check, CheckRun, Persona, PersonaProviderConfig, Provider
@@ -59,7 +60,7 @@ def validate(document):
             raise ValueError('Unknown condition type or field')
         if len(item) < 2:
             raise ValueError('Empty condition')
-        for key in ('id', 'name', 'kind', 'city', 'state'):
+        for key in ('id', 'name', 'kind'):
             if key in item and (not isinstance(item[key], (str, int)) or isinstance(item[key], bool) or not str(item[key]).strip()):
                 raise ValueError(f'{key} must be a non-empty identifier')
         if 'site' in item:
@@ -85,10 +86,17 @@ def validate(document):
                 if item['tasks'] != '*' and minimum > len({str(t) for t in item['tasks']}):
                     raise ValueError('min_passed exceeds the number of selected tasks')
         if kind == 'ip':
+            for key in ('state', 'city'):
+                if key in item:
+                    if not isinstance(item[key], str) or not item[key].strip():
+                        raise ValueError(f'{key} must be a nonempty string')
+                    item[key] = item[key].strip()
             if 'country' in item and not re.fullmatch('[A-Z]{2}', str(item['country'])):
                 raise ValueError('country must be a two-letter uppercase ISO code')
             if 'ip' in item:
                 item['ip'] = str(ipaddress.ip_address(item['ip']))
+            if 'state' in item:
+                item['state'] = network.normalize_location(item)['state']
 
     for key in ('require_all', 'prefer'):
         if not isinstance(spec[key], list):
@@ -141,6 +149,77 @@ def effective_config(persona, provider, overrides=None):
     return config
 
 
+def location_hint(spec, persona, provider):
+    """Choose compatible positive routing hints; observed IPs decide readiness."""
+    def combine(a, b):
+        country = a.get('country') or b.get('country')
+        a, b = (network.normalize_location({'country': country, **v}) if country else v for v in (a, b))
+        if any(str(a[k]).casefold() != str(b[k]).casefold() for k in a.keys() & b.keys()):
+            return None
+        return network.normalize_location({**a, **b})
+
+    def choices(c):
+        kind = c.get('type')
+        if kind == 'ip':
+            return [{k: v for k, v in c.items() if k != 'type'}]
+        if kind in {'persona', 'provider'}:
+            return [{}] if identity_matches(persona if kind == 'persona' else provider, c) else []
+        if kind or 'not' in c:
+            return [{}]
+        if 'require_any' in c:
+            return [v for child in c['require_any'] for v in choices(child)]
+        rows = [{}]
+        for child in c['require_all']:
+            rows = [v for a, b in product(rows, choices(child)) if (v := combine(a, b)) is not None]
+            if len(rows) > 100:
+                raise ValueError('Too many location alternatives')
+        return rows
+
+    def matches_hint(c, hint):
+        kind = c.get('type')
+        if kind == 'ip':
+            expected = network.normalize_location({**({'country': hint['country']} if hint.get('country') else {}),
+                                                   **{k: v for k, v in c.items() if k != 'type'}})
+            values = [None if k not in hint else str(hint[k]).casefold() == str(v).casefold()
+                      for k, v in expected.items()]
+            return False if False in values else None if None in values else True
+        if kind in {'persona', 'provider'}:
+            return identity_matches(persona if kind == 'persona' else provider, c)
+        if kind:
+            return None  # Task evidence is evaluated independently.
+        if 'not' in c:
+            value = matches_hint(c['not'], hint)
+            return None if value is None else not value
+        op = next(iter(c))
+        values = [matches_hint(child, hint) for child in c[op]]
+        if op == 'require_all':
+            return False if False in values else None if None in values else True
+        return True if True in values else None if None in values else False
+
+    required = {'require_all': spec['require_all']}
+    rows = choices(required)
+    if not rows and any(c['type'] == 'ip' for c in leaves(spec['require_all'])):
+        raise ValueError('Location requirements conflict with this selection')
+    for preference in spec['prefer']:
+        rows = [v for a, b in product(rows, choices(preference)) if (v := combine(a, b)) is not None] + rows
+        rows = list({tuple(sorted(v.items())): v for v in rows}.values())
+        if len(rows) > 100:
+            raise ValueError('Too many location alternatives')
+    rows = [v for v in rows if matches_hint(required, v) is not False]
+    return max(rows, key=lambda v: tuple(matches_hint(c, v) is True for c in spec['prefer']), default={})
+
+
+def request_config(spec, persona, provider):
+    config = effective_config(persona, provider, spec['provider_options'])
+    hint = location_hint(spec, persona, provider)
+    routing = adapter(provider).location_options(hint, config)
+    config = {k: v for k, v in {**config, **routing}.items() if v is not None}
+    adapter(provider).validate_config(config)
+    # Country is shared across all proxy adapters. Finer hints are best effort
+    # and may be omitted or plan-gated; do not score them as observed matches.
+    return config, {'country': hint['country']} if routing and hint.get('country') else {}
+
+
 def persona_settings(persona, provider):
     settings = dict(persona.config)
     if provider.site_scope is not None:
@@ -169,7 +248,12 @@ def task_health(check, config, *, run=None, fresh=False, max_age=None):
         return 'failed', result
     if not result.ended_at or (services.now() - result.ended_at).total_seconds() > (max_age if max_age is not None else check.interval_seconds):
         return 'stale', result
-    if result.run.runtime.get('provider_config') != config or result.run.runtime.get('settings') != (run.runtime['settings'] if run else persona_settings(check.account.persona, check.provider)):
+    runtime = adapter(check.provider)
+    recorded_config = result.run.runtime.get('provider_config')
+    expected_settings = run.runtime['settings'] if run else persona_settings(check.account.persona, check.provider)
+    if (recorded_config is None or result.run.runtime.get('provider_kind') != check.provider.kind
+            or runtime.task_health_config(recorded_config) != runtime.task_health_config(config)
+            or result.run.runtime.get('settings') != expected_settings):
         return 'changed', result
     plan = next((p for p in result.run.plan if p['id'] == check.id), {})
     if plan.get('instruction') != check.instruction or plan.get('url') != check.url:
@@ -182,8 +266,8 @@ def task_health(check, config, *, run=None, fresh=False, max_age=None):
     return 'healthy', result
 
 
-def evaluate(spec, persona, provider, *, run=None, preparing=False):
-    config = effective_config(persona, provider, spec['provider_options']) if run is None else run.runtime['provider_config']
+def evaluate(spec, persona, provider, *, run=None, preparing=False, observation=Ellipsis):
+    config, routed_hint = request_config(spec, persona, provider) if run is None else (run.runtime['provider_config'], {})
     checks = configured_checks(persona, provider, spec)
     results = []
     fresh = bool(spec['recheck'] and run)
@@ -233,9 +317,13 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
                 if any(k in c for k in ('country', 'state', 'city')) and network.database_error():
                     results.append({'pointer': path, 'condition': c, 'matched': False, 'reason': 'geolocation_unavailable'})
                     return None
+                if path.startswith('/prefer') and routed_hint:
+                    # Rank a supported routing attempt, not a claim about observed geography.
+                    return all(str(routed_hint.get(k, '')).casefold() == str(v).casefold()
+                               for k, v in c.items() if k != 'type')
                 return Ellipsis  # Deferred until allocation, distinct from missing evidence.
             observations = run.runtime.get('ip_observations', [])
-            record = observations[-1] if observations else None
+            record = (observations[-1] if observations else None) if observation is Ellipsis else observation
             ok, reason = True if record else None, 'unknown_ip'
             if record:
                 for key in ('ip', 'country', 'state', 'city'):
@@ -246,7 +334,8 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
                         if not value:
                             ok, reason = None, 'unknown_location'
                             break
-                        if str(value).casefold() != str(c[key]).casefold():
+                        expected = network.normalize_location({**record['geo'], **c}).get(key)
+                        if str(value).casefold() != str(expected).casefold():
                             ok, reason = False, 'not_matched'
         matched = ok is not None and (not ok if negate else ok)
         results.append({'pointer': path, 'condition': c, 'matched': matched, 'reason': '' if matched else reason, **counts})

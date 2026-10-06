@@ -14,7 +14,8 @@ uv run plain accounts broker  # session creation, deadlines, release and check-i
 In the app, **Browser Sessions → New session** opens the same request builder at
 `/edit/session`. Choose a provider (or any), persona (or any), site and maximum check
 age. Require all checks, at least N, or choose which checks are required, preferred
-or ignored. Add another site when needed; IP country applies to the whole session.
+or ignored. Add another site when needed; IP country, state/province and city apply
+to the whole session. Choose **Required** or **Preferred** for that location.
 Leave the age blank to follow each check's schedule. The form previews matching
 browsers and shows blocked requirements with their last check screenshots and times,
 without allocating a session. **Advanced conditions** edits the condition JSON for
@@ -63,7 +64,9 @@ or exact names. `min_passed` requires at least that many distinct checks to pass
 omitting it requires every selected check. Missing, failed, stale or changed results
 never count as passes. Without `max_age`, each task's configured interval is its freshness
 limit. A newer failure supersedes a previous pass. Changed prompts, browser settings,
-provider settings, or saved site state invalidate old evidence.
+fingerprint-affecting provider settings, or saved site state invalidate old evidence.
+Proxy routing changes do not erase recent account health: the new browser's IP is
+measured separately. Use `recheck: true` to verify account access on that exact network.
 
 The normal request reads saved health; it does not start checks or fixes. A waiting
 request is reconsidered as the independent maintenance worker updates that health.
@@ -176,9 +179,23 @@ that session. No unique IP constraint or IP-to-provider/geolocation dictionary i
 Repeated observations of the same IP within one session form one row at
 check-in. Later sessions get new rows and fresh geolocation snapshots.
 
-Set `MAXMIND_CITY_DB` to a locally installed GeoLite2 City or GeoIP2 City MMDB. Lookup
-stays local and snapshots the database version with each observation. Missing or invalid
-databases show unknown location; geography requirements fail closed.
+GeoLite2 City downloads automatically on startup into `ACCOUNT_CHECKER_DATA/geoip`,
+using the [P3TERX public mirror](https://github.com/P3TERX/GeoLite.mmdb) of MaxMind's
+database. No key is needed. The maintenance worker checks daily; downloads are
+size/checksum verified and validated as City MMDBs before atomic replacement.
+Concurrent processes share a file lock. A failed update preserves the installed
+database and retries after five minutes. `uv run plain accounts geoip --force`
+checks for an update immediately.
+
+Set `MAXMIND_CITY_DB` only to supply your own GeoLite2 City or GeoIP2 City MMDB;
+that file is never downloaded over or updated. Lookup stays local and snapshots
+the database version with each observation. Old audit records remain unchanged.
+If no valid database is available, locations stay unknown and geography
+requirements fail closed.
+
+This product includes GeoLite Data created by [MaxMind](https://www.maxmind.com),
+subject to the [GeoLite EULA](https://www.maxmind.com/en/geolite/eula) and
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 The browser probes `SESSION_IP_PROBE_URL` (default `https://api64.ipify.org?format=json`)
 at launch and before check-in. IP conditions always match this browser session's
@@ -186,6 +203,27 @@ current address and location. They accept `ip`, `country`, `state` and `city`;
 there are no site, historical-session or freshness selectors. IP history is an
 audit log, not a substitute for measuring the newly created session.
 Client-reported observations are labelled `reported`.
+
+Location conditions automatically become provider-specific proxy settings before
+launch. Country uses ISO2; state accepts a subdivision code or full name. Compatible
+ordered preferences supply additional routing hints without overriding requirements.
+Required IP conditions are checked before visiting account pages or running inference,
+and again before handoff. A wrong or unknown location never counts as a match.
+Exact IP requests can verify an address but cannot reserve arbitrary proxy addresses.
+
+| Adapter | Automatic location targeting |
+|---|---|
+| Browserbase | Country, US state, city via residential proxies |
+| Browserless | Country; state/city when the account plan supports them |
+| Anchor | Country, region; city with a region |
+| Kernel | Country/state/city through a reusable residential proxy; account plan permitting |
+| Local / Generic CDP | Existing browser network; requested locations are measured, not changed |
+| ZenRows | Country routing for managed tasks; direct session handoff remains unsupported |
+
+If an account explicitly rejects finer routing, the adapter uses its supported
+broader/default route and records `location_notes`. Required locations still have
+to match the measured result. State/city availability and GeoLite classifications
+may differ from a provider's advertised region.
 
 Network settings are one JSON configuration per persona/provider pair, interpreted
 only by its adapter. Blank form fields inherit provider defaults. Settings affect new
@@ -196,7 +234,7 @@ sessions. Region choices do not promise the same IP across sessions.
 | Browserbase | [Country, US state, city](https://github.com/browserbase/sdk-node/blob/main/src/resources/sessions/sessions.ts) |
 | Browserless | [Country, state, city](https://docs.browserless.io/baas/bot-detection/proxies); finer regions require the provider's plan support; sticky within a session |
 | Anchor | [Country, region, city](https://docs.anchorbrowser.io/api-reference/sessions/start-browser-session); city requires region |
-| Kernel | Existing saved proxy name; choose a static or geographically configured proxy in Kernel |
+| Kernel | Existing saved proxy, or automatically managed country/state/city routing when the plan permits |
 | ZenRows | Country or broad proxy region for scheduled tasks |
 | Local / Generic CDP | Network managed by host/upstream browser |
 
@@ -208,6 +246,8 @@ With a real HN task configured, server and broker running:
 uv run pytest tests/test_session_conditions.py tests/test_session_api.py tests/test_session_builder.py -q
 SESSION_TEST_PROVIDER=cdp uv run pytest tests/test_session_handoff.py -q -s
 SESSION_TEST_PROVIDER=browserbase uv run pytest tests/test_session_handoff.py -q -s
+SESSION_TEST_PROVIDER=browserbase SESSION_TEST_COUNTRY=US uv run pytest tests/test_session_locations.py -q -s
+uv run pytest tests/test_geoip_download.py -q
 ```
 
 The handoff test runs the configured browser-harness task, connects a separate real
