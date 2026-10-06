@@ -78,7 +78,7 @@ const chrome = require(v.helper);
                 assert actual['settings']['width'] == run.runtime['settings']['viewport']['width']
             print(json.dumps({'provider': provider, 'run': run.id, 'request': request['id'], 'direct': actual}))
             # The successful report triggers asynchronous postflight checks and export.
-            released = api.post(url, json={'success': True})
+            released = api.post(url, json={'success': True, 'message': 'Finished reading the prepared page'})
             assert released.status_code == 202
             deadline = time.monotonic() + 300
             while time.monotonic() < deadline:
@@ -91,6 +91,7 @@ const chrome = require(v.helper);
             final = Run.query.get(id=run.id)
             assert final.checked_in_at and final.finished_at and final.tip
             assert final.promoted, (final.promotion_reason, final.issues)
+            assert request['detail']['client_message'] == 'Finished reading the prepared page'
             assert CheckRun.query.filter(run=final, status='success').count() == 2
             assert IPUsage.query.filter(run=final).exists()
             count = IPUsage.query.filter(run=final).count()

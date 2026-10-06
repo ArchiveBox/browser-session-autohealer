@@ -234,7 +234,7 @@ def finalize(request_id, *, failed=False):
     exported = None
     stopped = False
     try:
-        if request.detail.get('client_message'):
+        if request.detail.get('client_message') and request.detail.get('client_success') is not True:
             services.record_issue(run.id, request.detail['client_message'])
         if run.runtime.get('cdp'):
             # A successful client report is verified against the resulting browser state.
