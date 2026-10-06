@@ -3,6 +3,7 @@
 import os
 import re
 import time
+from typing import ClassVar
 from urllib.parse import quote, urlsplit
 
 import httpx
@@ -11,6 +12,11 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Kernel(CDPAdapter):
+    network_fields: ClassVar[dict] = {'proxy.name': 'Saved proxy name'}
+
+    def session_lifetime(self, config):
+        return config.get('timeout_seconds', 1800)
+
     label = "Kernel"
     description = "An isolated Kernel cloud browser with portable site data and a live view."
     config_help = (

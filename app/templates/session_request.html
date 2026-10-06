@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}<link rel="stylesheet" href="{{asset('session_builder.css')}}">
+<div class="heading"><h1>Browser Session</h1><a class="btn" href="/edit/session">＋ New session</a></div>
+{% include 'session_status.html' %}
+<details class="request-preview"><summary>⌘ API request</summary><pre id="request-preview">{{session_request.spec|tojson(indent=2)}}</pre><button class="btn" data-copy="request-preview">Copy JSON</button></details>
+<script defer src="{{asset('session_builder.js')}}"></script>{% endblock %}

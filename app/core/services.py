@@ -146,15 +146,12 @@ def checkout(
     base_event = LeaderChange.query.filter(persona=persona, checkpoint=base).order_by('-created_at').first()
     if not provider.enabled:
         raise ValueError("Provider is disabled")
-    settings = dict(persona.config)
+    from .session_conditions import effective_config, persona_settings
+    connection_config = effective_config(persona, provider)
+    settings = persona_settings(persona, provider)
     if provider.site_scope is not None:
-        from .site_scope import matches, normalize_sites
-        allowed = normalize_sites(provider.site_scope)
-        configured = normalize_sites(settings.get('siteScope'))
-        sites = [s for s in dict.fromkeys([*(configured or []), *allowed])
-                 if matches(s, configured) and matches(s, allowed)]
-        settings['siteScope'] = normalize_sites(sites)
-        if scope != '*' and not matches(scope, sites):
+        from .site_scope import matches
+        if scope != '*' and not matches(scope, settings['siteScope']):
             raise ValueError('This site is not enabled for this provider')
         if base.coverage.get('cookies') == 'native-only':
             raise ValueError('Import portable site data before using a restricted provider')
@@ -202,7 +199,7 @@ def checkout(
             **runtime_fix,
             "settings": settings,
             "provider_site_scope": provider.site_scope,
-            "provider_config": provider.config,
+            "provider_config": connection_config,
             "provider_kind": provider.kind,
             "external": external,
             "inference": inference_config(),
@@ -808,6 +805,8 @@ def finish(run_id, *, success, export_complete):
         run = Run.query.for_update().get(id=run_id)
         if run.checked_in_at:
             return run
+        from .network import finalize
+        finalize(run)
         if not run.finished_at:
             raise ValueError("Provider must stop the browser before check-in")
         reasons = []

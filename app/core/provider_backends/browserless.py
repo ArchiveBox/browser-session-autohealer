@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import time
+from typing import ClassVar
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from websockets.exceptions import InvalidStatus, WebSocketException
@@ -13,6 +14,12 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Browserless(CDPAdapter):
+    egress_scope = 'session'  # This adapter always requests proxySticky=true; no per-domain routes.
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country · us', 'proxy_state': 'State · newjersey', 'proxy_city': 'City · newark'}
+
+    def session_lifetime(self, config):
+        return config.get('session_timeout_ms', 120000) // 1000
+
     label = "Browserless.io"
     description = "An isolated cloud browser with reconnectable CDP and portable site data."
     config_help = "Set region (sfo, lon, ams), stealth, residential_proxies, proxy_country and session_timeout_ms. Store BROWSERLESS_API_KEY in .env. The timeout must fit your plan. Native IndexedDB and OPFS transfer are not supported."
@@ -31,7 +38,7 @@ class Browserless(CDPAdapter):
         return support
 
     def validate_config(self, config):
-        unknown = set(config) - {"region", "stealth", "residential_proxies", "proxy_country", "session_timeout_ms"}
+        unknown = set(config) - {"region", "stealth", "residential_proxies", "session_timeout_ms", *self.network_fields}
         if unknown:
             raise ValueError("Unsupported Browserless connection settings: " + ", ".join(sorted(unknown)))
         if config.get("region", "sfo") not in {"sfo", "lon", "ams"}:
@@ -47,6 +54,9 @@ class Browserless(CDPAdapter):
             raise ValueError("Browserless proxy_country must be a two-letter country code")
         if country and not config.get("residential_proxies", True):
             raise ValueError("Browserless proxy_country requires residential_proxies")
+        for key in ('proxy_state', 'proxy_city'):
+            if key in config and (not country or not isinstance(config[key], str) or not config[key].strip()):
+                raise ValueError(f'{key} requires a country and a nonempty name')
 
     def launch(self, run):
         config = provider_config(run)
@@ -60,6 +70,9 @@ class Browserless(CDPAdapter):
             query.update(proxy="residential", proxySticky="true")
             if config.get("proxy_country"):
                 query["proxyCountry"] = config["proxy_country"].lower()
+            for field in ('state', 'city'):
+                if config.get('proxy_' + field):
+                    query['proxy' + field.title()] = config['proxy_' + field].replace(' ', '').lower()
         route = "stealth" if config.get("stealth", True) else "chromium"
         endpoint = f"wss://production-{config.get('region', 'sfo')}.browserless.io/{route}?{urlencode(query)}"
         try:

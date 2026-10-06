@@ -16,6 +16,11 @@ from ..providers import CDPAdapter, provider_config
 
 
 class ZenRows(CDPAdapter):
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country · us', 'proxy_region': 'Region · na'}
+
+    def validate_handoff(self, config):
+        raise ValueError('ZenRows currently requires a connection relay; direct session handoff is unavailable')
+
     label = "ZenRows"
     description = "An isolated cloud browser with residential proxies and a provider-managed fingerprint."
     config_help = "Set proxy_country or proxy_region and session_ttl_minutes (1–15). Store ZENROWS_API_KEY in .env. ZenRows controls viewport, user agent and device identity; these persona settings cannot be applied. Native IndexedDB and OPFS transfer are not supported."

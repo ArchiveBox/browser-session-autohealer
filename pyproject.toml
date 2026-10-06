@@ -24,6 +24,7 @@ dependencies = [
   "websockets>=15,<16",
   "django>=5.2,<7",
   "python-dotenv>=1,<2",
+  "maxminddb>=2,<4",
 ]
 
 [dependency-groups]

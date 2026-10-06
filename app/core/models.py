@@ -18,6 +18,8 @@ class UUID7Field(types.UUIDField):
 
 @postgres.register_model
 class Persona(postgres.Model):
+    model_options = postgres.Options(constraints=[postgres.UniqueConstraint(fields=['uid'], name='persona_uid')])
+    uid: Field[UUID] = UUID7Field()
     name: Field[str] = types.TextField(max_length=160)
     description: Field[str] = types.TextField(default="", required=False)
     config: Field[dict] = types.JSONField(default={}, required=False)
@@ -49,6 +51,8 @@ class Account(postgres.Model):
 
 @postgres.register_model
 class Provider(postgres.Model):
+    model_options = postgres.Options(constraints=[postgres.UniqueConstraint(fields=['uid'], name='provider_uid')])
+    uid: Field[UUID] = UUID7Field()
     site_scope: Field[list | None] = types.JSONField(default=None, allow_null=True, required=False)
     color: Field[str] = types.TextField(default='', required=False, max_length=7)
     name: Field[str] = types.TextField(max_length=160)
@@ -197,6 +201,50 @@ class Run(postgres.Model):
             postgres.Index(fields=["status", "created_at"], name="run_status_created_at_idx"),
         ]
     )
+
+
+@postgres.register_model
+class PersonaProviderConfig(postgres.Model):
+    persona: Field[Persona] = types.ForeignKeyField(Persona, on_delete=postgres.RESTRICT)
+    provider: Field[Provider] = types.ForeignKeyField(Provider, on_delete=postgres.RESTRICT)
+    config: Field[dict] = types.JSONField(default={}, required=False)
+    model_options = postgres.Options(constraints=[postgres.UniqueConstraint(
+        fields=['persona', 'provider'], name='persona_provider_config')],
+        indexes=[postgres.Index(fields=['provider'], name='persona_provider_idx')])
+
+
+@postgres.register_model
+class SessionRequest(postgres.Model):
+    uid: Field[UUID] = UUID7Field()
+    key: Field[str | None] = types.TextField(allow_null=True, default=None, required=False)
+    spec: Field[dict] = types.JSONField()
+    status: Field[str] = types.TextField(default='queued')
+    run: Field[Run | None] = types.ForeignKeyField(Run, on_delete=postgres.RESTRICT,
+        allow_null=True, default=None, required=False)
+    detail: Field[dict] = types.JSONField(default={}, required=False)
+    created_at: Field[datetime] = types.DateTimeField(create_now=True)
+    deadline: Field[datetime | None] = types.DateTimeField(allow_null=True, default=None, required=False)
+    expires_at: Field[datetime | None] = types.DateTimeField(allow_null=True, default=None, required=False)
+    model_options = postgres.Options(constraints=[
+        postgres.UniqueConstraint(fields=['uid'], name='session_request_uid'),
+        postgres.UniqueConstraint(fields=['key'], name='session_request_key'),
+    ], indexes=[postgres.Index(fields=['status', 'created_at'], name='session_request_queue_idx'),
+                postgres.Index(fields=['run'], name='session_request_run_idx')])
+
+
+@postgres.register_model
+class IPUsage(postgres.Model):
+    run: Field[Run] = types.ForeignKeyField(Run, on_delete=postgres.RESTRICT)
+    ip: Field[str] = types.TextField(max_length=45)
+    started_at: Field[datetime] = types.DateTimeField()
+    ended_at: Field[datetime] = types.DateTimeField()
+    source: Field[str] = types.TextField(default='browser')
+    scope: Field[str] = types.TextField(default='probe')
+    geo: Field[dict] = types.JSONField(default={}, required=False)
+    model_options = postgres.Options(indexes=[
+        postgres.Index(fields=['run'], name='ip_usage_run_idx'),
+        postgres.Index(fields=['ip', 'ended_at'], name='ip_usage_history_idx'),
+    ])
 
 
 @postgres.register_model

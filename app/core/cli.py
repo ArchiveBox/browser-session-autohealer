@@ -120,3 +120,11 @@ def agent():
     click.echo(
         "OpenCode ready in Browser Session Autohealer: http://127.0.0.1:8421/agents"
     )
+
+
+@cli.command()
+@click.option('--once', is_flag=True)
+def broker(once):
+    """Prepare and finalize external sessions alongside the independent task worker."""
+    from .session_broker import loop
+    loop(once=once)

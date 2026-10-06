@@ -66,6 +66,7 @@ class CollectionAPI(API):
                     "personas": [
                         {
                             "id": p.id,
+                            "uid": str(p.uid),
                             "name": p.name,
                             "config": p.config,
                             "leaders": [
@@ -84,7 +85,7 @@ class CollectionAPI(API):
             return JsonResponse(
                 {
                     "providers": [
-                        {"id": p.id, "name": p.name, "kind": p.kind, "enabled": p.enabled}
+                        {"id": p.id, "uid": str(p.uid), "name": p.name, "kind": p.kind, "enabled": p.enabled}
                         for p in Provider.query.all()
                     ]
                 }
@@ -139,12 +140,17 @@ class RunAPI(API):
         run = Run.query.get(id=self.url_kwargs["id"])
         if not run.runtime.get("external"):
             raise ValueError("This run belongs to the browser worker")
+        if run.runtime.get('managed_request'):
+            raise ValueError('Release managed sessions through /api/sessions/' + run.runtime['managed_request'])
         action, data = self.url_kwargs["action"], self.request.json_data
         if run.checked_in_at:
             if action == "checkin":
                 return JsonResponse(run_json(run))
             raise ValueError("Run is already checked in")
-        if action == "issue":
+        if action == 'ip':
+            from .core.network import record
+            record(run, data['ip'], source='reported', scope=data.get('scope', 'probe'))
+        elif action == "issue":
             services.record_issue(run.id, str(data["message"])[:400])
         elif action == "observation":
             plan = next((p for p in run.plan if p["id"] == int(data["check_id"])), None)

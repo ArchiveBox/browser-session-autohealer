@@ -49,6 +49,7 @@ def host_browser_invocation(action, run, **payload):
         "work": str(work),
         "cdp": run.runtime.get("cdp"),
         "browserContextId": run.runtime.get("browser_context_id"),
+        "settingsManaged": bool(run.runtime.get('session_watch_pid')),
         "settings": run.runtime.get("settings", run.persona.config),
         "appliedSettings": adapter(run.provider, kind=run.runtime.get("provider_kind")).driver_settings(
             run.runtime.get("settings", run.persona.config)
@@ -120,6 +121,19 @@ class CDPAdapter:
         "native": False, "cookies": True, "localStorage": True,
         "sessionStorage": True, "indexedDB": False, "opfs": False, "screencast": True,
     }
+    egress_scope = 'probe'
+    network_fields: ClassVar[dict] = {}
+
+    def validate_handoff(self, config):
+        self.validate_config(config)
+
+    def session_lifetime(self, config):
+        return 1800
+
+    def connection(self, run):
+        return {'cdp_url': run.runtime['cdp'],
+                'browser_context_id': run.runtime.get('browser_context_id'),
+                'targets': run.runtime.get('tabs', []), 'capabilities': self.capabilities}
 
     def native_path(self, run):
         return None
@@ -222,6 +236,14 @@ class Local(CDPAdapter):
         "opfs": True,
         "screencast": True,
     }
+
+    def validate_handoff(self, config):
+        super().validate_handoff(config)
+        if config.get('runtime') == 'docker':
+            raise ValueError('Direct handoff requires the host runtime; this Docker image exposes CDP only inside its container')
+
+    def session_lifetime(self, config):
+        return 259200
 
     def settings_support(self, config):
         return {
@@ -376,6 +398,7 @@ class Local(CDPAdapter):
 
 
 class Browserbase(CDPAdapter):
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country · US', 'proxy_state': 'State · NJ', 'proxy_city': 'City · Newark'}
     label = "Browserbase"
     description = "An isolated cloud browser with portable site data and an interactive live view."
     config_help = "Set project_id, region, verified (true/false) and residential_proxies (true/false). Store BROWSERBASE_API_KEY in the ignored .env file. Verified and residential proxies default to enabled; unsupported plans fail explicitly. Native IndexedDB and OPFS transfer are not supported."
@@ -390,7 +413,7 @@ class Browserbase(CDPAdapter):
     }
 
     def validate_config(self, config):
-        unknown = set(config) - {"project_id", "region", "verified", "residential_proxies"}
+        unknown = set(config) - {"project_id", "region", "verified", "residential_proxies", *self.network_fields}
         if unknown:
             raise ValueError("Unsupported Browserbase connection settings: " + ", ".join(sorted(unknown)))
         if not isinstance(config.get("project_id"), str) or not config["project_id"].strip():
@@ -400,6 +423,14 @@ class Browserbase(CDPAdapter):
         for key in ("verified", "residential_proxies"):
             if key in config and type(config[key]) is not bool:
                 raise ValueError(f"Browserbase {key} must be true or false")
+        geo = {k: config[k] for k in self.network_fields if config.get(k)}
+        if geo:
+            if not config.get('residential_proxies', True) or not re.fullmatch(r'[A-Z]{2}', geo.get('proxy_country', '')):
+                raise ValueError('Proxy location requires residential proxies and an uppercase country code')
+            if geo.get('proxy_state') and (geo['proxy_country'] != 'US' or not re.fullmatch(r'[A-Z]{2}', geo['proxy_state'])):
+                raise ValueError('Browserbase state requires country US and a two-letter state code')
+            if geo.get('proxy_city') and (not isinstance(geo['proxy_city'], str) or len(geo['proxy_city']) > 100):
+                raise ValueError('Proxy city must be a name of at most 100 characters')
 
     def api(self, method, path, **kwargs):
         key = os.environ.get("BROWSERBASE_API_KEY")
@@ -445,7 +476,9 @@ class Browserbase(CDPAdapter):
             json={
                 "projectId": project,
                 "browserSettings": browser_settings,
-                "proxies": provider_config(run).get("residential_proxies", True),
+                "proxies": ([{'type': 'browserbase', 'geolocation': {k.removeprefix('proxy_'): provider_config(run)[k]
+                    for k in self.network_fields if provider_config(run).get(k)}}]
+                    if provider_config(run).get('proxy_country') else provider_config(run).get("residential_proxies", True)),
                 "keepAlive": True,
                 "timeout": 1800,
                 "region": provider_config(run).get("region", "us-west-2"),

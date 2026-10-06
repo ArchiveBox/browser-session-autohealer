@@ -97,8 +97,10 @@ def execute(run):
         # Desired settings are frozen at checkout execution and retained with the run.
         run.runtime = {**run.runtime, **provider.launch(run)}
         launched = True
+        from .network import observe as observe_ip
         run.status = "running"
         run.update(fields=["runtime", "status"])
+        observe_ip(run)
         # Native-only imports carry no semantic cookie export; keep their native cookies.
         if run.base.coverage.get("cookies") != "native-only":
             browser_command("seed", run, state=state)
@@ -163,6 +165,7 @@ def execute(run):
             context.write_text(json.dumps({"active": False}))
         if launched:
             try:
+                observe_ip(run)
                 provider.stop(run)
                 stopped = True
             except Exception as exc:  # noqa: BLE001 - record every failed run and close its owned browser

@@ -2,9 +2,23 @@ from plain.assets.urls import AssetsRouter
 from plain.auth.views import LogoutView
 from plain.urls import Router, include, path
 
-from . import agents, api, browsers, check_types, checks, login_help, opencode, tasks, trees, views
+from . import (
+    agents,
+    api,
+    browsers,
+    check_types,
+    checks,
+    login_help,
+    opencode,
+    session_api,
+    tasks,
+    trees,
+    views,
+)
 from .compare import CompareView
 from .lineage import LineageView
+from .network import NetworkEditor
+from .sessions import SessionEditor, SessionStatus, SessionView
 
 
 class AppRouter(Router):
@@ -14,12 +28,16 @@ class AppRouter(Router):
         path("login", views.LoginView, name="login"),
         path("logout", LogoutView, name="logout"),
         path("", views.Dashboard, name="index"),
+        path("edit/network", NetworkEditor, name="network-editor"),
         path("edit/check", tasks.TaskEditor, name="task-editor"),
         path("fixes", tasks.FixesRedirect, name="fixes"),
         path("tasks/rules", tasks.RulesView, name="task-rules"),
         path("edit/rule", tasks.RuleEditor, name="rule-editor"),
         path("edit/check-type", check_types.CheckTypeEditor, name="check-type-editor"),
-        path("edit/session", check_types.SessionEditor, name="session-editor"),
+        path("edit/task-session", check_types.SessionEditor, name="task-session-editor"),
+        path("edit/session", SessionEditor, name="session-editor"),
+        path("sessions/<str:uid>", SessionView, name="session-request"),
+        path("sessions/<str:uid>/status", SessionStatus, name="session-status"),
         path("edit/<str:kind>", views.Editor, name="editor"),
         path("personas/<int:id>/lineage", LineageView, name="lineage"),
         path("personas/<int:id>", views.PersonaView, name="persona"),
@@ -39,6 +57,8 @@ class AppRouter(Router):
         path("agents/opencode/<path:path>", opencode.OpenCodeProxy, name="opencode-proxy"),
         path("integrations", login_help.Integrations, name="integrations"),
         path("login-help", login_help.LoginHelp, name="login-help"),
+        path("api/sessions", session_api.SessionsAPI, name="api-sessions"),
+        path("api/sessions/<str:uid>", session_api.SessionsAPI, name="api-session"),
         path("api/<str:resource>", api.CollectionAPI, name="api-collection"),
         path("api/runs/<int:id>/<str:action>", api.RunAPI, name="api-run"),
         path("evidence/<int:id>/<str:filename>", views.EvidenceView, name="evidence"),
