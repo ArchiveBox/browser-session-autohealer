@@ -49,10 +49,22 @@ class SessionEditor(Base, FormView):
             validate(initial)
         except (ValueError, TypeError, KeyError):
             initial = {'require_all': [], 'prefer': []}
+        checks = list(Check.query.filter(enabled=True, mode='check').join('account__site', 'account__persona', 'provider'))
+        latest = {r.check_id: r for r in CheckRun.query.filter(check_id__in=[c.id for c in checks])
+                  .join('run').order_by('check_id', '-created_at', '-id').distinct('check_id')}
+        tasks = []
+        for check in checks:
+            result = latest.get(check.id)
+            tasks.append({'name': check.name, 'site': check.account.site.domain,
+                'persona': str(check.account.persona.uid), 'provider': str(check.provider.uid),
+                'image': health.result_image(result)[0] if result else '',
+                'result_url': f'/runs/{result.run.id}/checks/{check.id}' if result else '',
+                'status': result.status if result else '',
+                'at': result.ended_at.isoformat() if result and result.ended_at else ''})
         return {**ctx, 'nav': 'runs', 'builder': {
             'personas': [{'id': str(p.uid), 'name': p.name} for p in Persona.query.order_by('name')],
             'providers': providers,
-            'tasks': [{'name': c.name, 'site': c.account.site.domain} for c in Check.query.filter(enabled=True, mode='check')],
+            'tasks': tasks,
             'initial': initial}, 'request_key': self.request.form_data.get('key') or str(uuid4())}
 
     def form_valid(self, form):

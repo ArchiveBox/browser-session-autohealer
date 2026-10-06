@@ -12,9 +12,12 @@ uv run plain accounts broker  # session creation, deadlines, release and check-i
 ```
 
 In the app, **Browser Sessions → New session** opens the same request builder at
-`/edit/session`. Add persona, provider, site/task and IP conditions, group them with
-All/Any/Except, and order preferences. Set freshness, rechecking, wait time, lifetime
-and provider overrides, then create the session. The result page shows readiness
+`/edit/session`. Choose a provider (or any), persona (or any), site and maximum check
+age. Require all checks, at least N, or choose which checks are required, preferred
+or ignored. Add another site when needed; IP country applies to the whole session.
+The form shows the real check names and their latest screenshots. **Advanced conditions**
+supports All/Any/Except groups and ordered preferences. Set rechecking, wait time,
+lifetime and provider overrides, then create the session. The result page shows readiness
 screenshots, copyable CDP/context IDs, expiry and check-in controls. **API request**
 shows the equivalent JSON.
 
@@ -53,14 +56,48 @@ work in conditions. `POST /api/sessions` accepts:
 With no task clauses, all enabled read-only tasks for the selected persona/provider
 must be healthy. An empty task set is **not** healthy. With task clauses, only those
 sites/tasks are selected. `tasks` accepts `"*"` or a list of task UUIDs, numeric IDs,
-or exact names. Without `max_age`, each task's configured interval is its freshness
+or exact names. `min_passed` requires at least that many distinct checks to pass;
+omitting it requires every selected check. Missing, failed, stale or changed results
+never count as passes. Without `max_age`, each task's configured interval is its freshness
 limit. A newer failure supersedes a previous pass. Changed prompts, browser settings,
 provider settings, or saved site state invalidate old evidence.
 
 The normal request reads saved health; it does not start checks or fixes. A waiting
 request is reconsidered as the independent maintenance worker updates that health.
-Fresh-check failures return an error and dispatch the existing asynchronous recovery
-rules. They never hand a failed browser to the caller.
+Unmet readiness requirements return an error and dispatch the existing asynchronous
+recovery rules. A preferred check or an explicitly tolerated failure does not block
+readiness. Promotion at check-in remains stricter: any failed check prevents adoption.
+
+## Browserbase, any persona, X checked within five minutes
+
+```json
+{
+  "require_all": [
+    {"type": "provider", "kind": "browserbase"},
+    {"type": "task", "site": "x.com", "tasks": "*", "max_age": 300}
+  ],
+  "timeout": 60
+}
+```
+
+## At least three of four checks within twenty minutes
+
+Use the names or UUIDs of the configured checks. This accepts any three; to require
+three specific checks instead, put those in `require_all` and the fourth in `prefer`.
+
+```json
+{
+  "require_all": [
+    {"type": "ip", "country": "US"},
+    {"type": "task", "site": "x.com", "tasks": ["CHECK_1_UUID", "CHECK_2_UUID", "CHECK_3_UUID", "CHECK_4_UUID"], "min_passed": 3, "max_age": 1200}
+  ],
+  "timeout": 60
+}
+```
+
+With `recheck: true`, the selected checks run again on the new session and must meet
+the same minimum and required-check rules. Preferred checks participate in selection
+and rechecking, but their failures never become implicit requirements.
 
 ## Fresh Reddit check
 

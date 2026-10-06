@@ -53,7 +53,7 @@ def validate(document):
             return
         kind = item.get('type')
         fields = {'persona': {'id', 'name'}, 'provider': {'id', 'kind', 'name'},
-                  'task': {'site', 'tasks', 'status', 'max_age'},
+                  'task': {'site', 'tasks', 'status', 'max_age', 'min_passed'},
                   'ip': {'ip', 'country', 'state', 'city'}}
         if kind not in fields or set(item) - fields[kind] - {'type'}:
             raise ValueError('Unknown condition type or field')
@@ -78,6 +78,12 @@ def validate(document):
             if item['tasks'] != '*' and (not isinstance(item['tasks'], list) or not item['tasks'] or
                     any(not isinstance(t, (str, int)) or isinstance(t, bool) for t in item['tasks'])):
                 raise ValueError('tasks must be * or a nonempty list of task IDs or exact names')
+            if 'min_passed' in item:
+                minimum = item['min_passed']
+                if type(minimum) is not int or minimum < 1:
+                    raise ValueError('min_passed must be a positive integer')
+                if item['tasks'] != '*' and minimum > len({str(t) for t in item['tasks']}):
+                    raise ValueError('min_passed exceeds the number of selected tasks')
         if kind == 'ip':
             if 'country' in item and not re.fullmatch('[A-Z]{2}', str(item['country'])):
                 raise ValueError('country must be a two-letter uppercase ISO code')
@@ -110,6 +116,7 @@ def configured_checks(persona, provider, spec):
                   .join('account__site'))
     selectors = [c for c in leaves(spec['require_all']) if c['type'] == 'task']
     if selectors:
+        selectors += [c for c in leaves(spec['prefer']) if c['type'] == 'task']
         checks = [c for c in checks if any(task_matches(c, s) for s in selectors)]
     return [c for c in checks if matches(c.account.site.domain, provider.site_scope)
             and matches(c.account.site.domain, persona.config.get('siteScope'))]
@@ -186,7 +193,7 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
             if op == 'require_all':
                 return False if False in children else None if None in children else Ellipsis if Ellipsis in children else True
             return True if True in children else Ellipsis if Ellipsis in children else None if None in children else False
-        kind, reason = c['type'], ''
+        kind, reason, counts = c['type'], '', {}
         ok = True
         if kind in {'persona', 'provider'}:
             obj = persona if kind == 'persona' else provider
@@ -197,13 +204,17 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
             selected = [t for t in checks if task_matches(t, c)]
             keys = c.get('tasks', '*')
             complete = bool(selected) and (keys == '*' or all(any(str(k) in {str(t.id), str(t.uid), t.name} for t in selected) for k in keys))
-            if not complete:
+            minimum = c.get('min_passed', len(selected))
+            if not selected or ('min_passed' not in c and not complete):
                 ok, reason = False, 'no_checks'
             elif preparing and spec['recheck'] or spec['allow_unhealthy']:
-                ok = True
+                ok, reason = len(selected) >= minimum, 'not_enough_checks'
             else:
                 states = [task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))[0] for t in selected]
-                ok, reason = all(s == 'healthy' for s in states), next((s for s in states if s != 'healthy'), '')
+                passed = states.count('healthy')
+                counts = {'passed': passed, 'required': minimum, 'total': len(selected)}
+                ok = passed >= minimum
+                reason = 'not_enough_passing_checks' if 'min_passed' in c else next((s for s in states if s != 'healthy'), '')
         else:
             if run is None:
                 return Ellipsis  # Deferred until allocation, distinct from missing evidence.
@@ -222,7 +233,7 @@ def evaluate(spec, persona, provider, *, run=None, preparing=False):
                         if str(value).casefold() != str(c[key]).casefold():
                             ok, reason = False, 'not_matched'
         matched = ok is not None and (not ok if negate else ok)
-        results.append({'pointer': path, 'matched': matched, 'reason': '' if matched else reason})
+        results.append({'pointer': path, 'matched': matched, 'reason': '' if matched else reason, **counts})
         return ok
 
     matched = [test(c, f'/require_all/{i}') for i, c in enumerate(spec['require_all'])]

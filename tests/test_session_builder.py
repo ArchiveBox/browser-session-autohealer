@@ -14,8 +14,14 @@ ORIGIN = 'http://127.0.0.1:8421'
 def test_builder_and_task_editor_are_distinct(app_session):
     page = app_session.get('/edit/session')
     assert page.status_code == 200
-    for label in ('Require all', 'Prefer', 'Recheck before use', 'Lifetime', 'API request', 'Create session'):
+    for label in ('Choose requirements', 'Site access', 'Your session', 'Advanced conditions',
+                  'Require all', 'Prefer', 'Recheck before use', 'Lifetime', 'API request', 'Create session'):
         assert label in page.text
+    builder = json.loads(re.search(r'<script type="application/json" id="builder-data">(.*?)</script>', page.text, re.DOTALL)[1])
+    assert builder['tasks'] and all(t['persona'] and t['provider'] for t in builder['tasks'])
+    for task in builder['tasks']:
+        if task['image']:
+            assert app_session.get(task['image']).status_code == 200
     script = re.search(r'src="(/assets/session_builder(?:\.[a-f0-9]+)?\.js)"', page.text)
     assert script and app_session.get(script[1]).status_code == 200
     assert app_session.get('/edit/task-session').status_code == 200

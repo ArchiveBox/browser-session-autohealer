@@ -5,7 +5,13 @@
 {% for error in form.non_field_errors %}<p class="error">{{error}}</p>{% endfor %}{% for error in form.document.errors %}<p class="error">{{error}}</p>{% endfor %}
 <input type="hidden" name="key" value="{{request_key}}"><input type="hidden" name="document" id="request-document">
 <script type="application/json" id="builder-data">{{builder|tojson}}</script>
-<div class="condition-sections"><section><h2>✓ Require all</h2><div id="required-conditions"></div></section><section><h2>☆ Prefer <small>In order</small></h2><div id="preferred-conditions"></div></section></div>
+<div class="builder-modes" role="group" aria-label="Request editor"><button type="button" id="guided-mode" class="btn" aria-pressed="true">Choose requirements</button><button type="button" id="advanced-mode" class="btn" aria-pressed="false">Advanced conditions</button></div>
+<div id="guided-builder" class="guided-layout">
+<div class="guided-main"><section class="browser-requirements"><h2>Browser</h2><div id="browser-fields" class="condition-fields"></div></section>
+<section class="access-requirements"><div class="site-section-heading"><h2>Site access</h2><button type="button" id="add-site" class="btn">＋ Site</button></div><div id="site-requirements"></div></section></div>
+<div class="request-summary"><h2>Your session</h2><div id="session-summary" aria-live="polite"></div></div>
+</div>
+<div id="advanced-builder" hidden><div class="condition-sections"><section><h2>✓ Require all</h2><div id="required-conditions"></div></section><section><h2>☆ Prefer <small>In order</small></h2><div id="preferred-conditions"></div></section></div></div>
 <div class="session-options">
 <label class="toggle"><input type="checkbox" id="recheck"> Recheck before use</label>
 <label>Wait <select id="wait-mode"><option value="60">Up to 60 seconds</option><option value="0">Do not wait</option><option value="-1">Until ready</option><option value="custom">Custom</option></select><input id="timeout" type="number" min="1" max="3600" value="60" aria-label="Wait seconds" hidden></label>
