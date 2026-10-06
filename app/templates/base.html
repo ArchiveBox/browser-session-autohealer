@@ -1,5 +1,5 @@
 {% set nav = nav|default('personas') %}
-{% set nav_titles = {'runs':'Browser Sessions','personas':'Personas','sites':'Sites','checks':'Tasks','agents':'AI Sessions','integrations':'Integrations','types':'Task Types','providers':'Browser Providers','settings':'Settings','compare':'Compare'} %}
+{% set nav_titles = {'runs':'Browser Sessions','personas':'Personas','sites':'Sites','checks':'Tasks','agents':'AI Sessions','integrations':'Integrations','types':'Task Types','ips':'IPs','providers':'Browser Providers','settings':'Settings','compare':'Compare'} %}
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}"><meta name="application-name" content="Browser Session Autohealer"><title>{{nav_titles.get(nav,'Browser personas')}} · Browser Session Autohealer</title>{% tailwind_css %}{% htmx_js %}<link rel="stylesheet" href="{{ asset('app.css') }}"><link rel="stylesheet" href="{{ asset('dashboard.css') }}"><link rel="stylesheet" href="{{ asset('agents.css') }}"><link rel="stylesheet" href="{{ asset('browser_settings.css') }}"><link rel="stylesheet" href="{{ asset('credentials.css') }}"><link rel="stylesheet" href="{{ asset('session_tree.css') }}"><link rel="stylesheet" href="{{ asset('integrations.css') }}"><link rel="stylesheet" href="{{ asset('tasks.css') }}"><script defer src="{{ asset('session_tree.js') }}"></script></head>
@@ -9,7 +9,7 @@
 <a class="brand" href="/"><img class="mark" src="{{ asset('favicon.svg') }}" alt="" aria-hidden="true"><span class="brand-name">Session Autohealer<span class="brand-parent">ArchiveBox</span></span></a>
 
 <nav aria-label="Main navigation">
-{% for key,label,symbol in [('runs','Browser Sessions','◷'),('personas','Personas','◎'),('sites','Sites','▦'),('checks','Tasks','✓'),('agents','AI Sessions','✦'),('integrations','Integrations','⚿'),('types','Task Types','⌘'),('providers','Browser Providers','▱')] %}
+{% for key,label,symbol in [('runs','Browser Sessions','◷'),('personas','Personas','◎'),('sites','Sites','▦'),('checks','Tasks','✓'),('agents','AI Sessions','✦'),('integrations','Integrations','⚿'),('types','Task Types','⌘'),('providers','Browser Providers','▱'),('ips','IPs','◎')] %}
 <a class="{{'selected' if nav==key else ''}} {{'nav-secondary' if key=='integrations' else ''}}" href="{{'/integrations' if key=='integrations' else '/?view='+key}}" {% if nav==key %}aria-current="page"{% endif %}><span aria-hidden="true">{{symbol}}</span>{{label}}</a>
 {% endfor %}
 </nav>

@@ -8,6 +8,9 @@ from ..providers import CDPAdapter, browser_command, provider_config
 
 
 class GenericCDP(CDPAdapter):
+    def session_lifetime(self, config):
+        return 259200
+
     label = 'Generic CDP'
     description = 'An existing Chrome CDP endpoint; each session owns a separate browser context.'
     config_help = 'Set endpoint_env to an environment variable containing an HTTP(S) or WS(S) browser CDP endpoint. The browser must support persistent isolated contexts and concurrent CDP connections. Credentials belong in .env.'

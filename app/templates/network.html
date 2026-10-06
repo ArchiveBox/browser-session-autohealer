@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% block content %}
+<div class="heading"><h1>◎ Network</h1>{% if request.query_params.get('saved') %}<span class="badge success">✓ Saved</span>{% endif %}</div>
+<section class="card"><form method="get" class="actions">
+<label>Persona <select name="persona" onchange="this.form.submit()"><option value="">—</option>{% for p in personas %}<option value="{{p.id}}" {{'selected' if persona and p.id==persona.id else ''}}>{{p.name}}</option>{% endfor %}</select></label>
+<label>Provider <select name="provider" onchange="this.form.submit()"><option value="">—</option>{% for p in providers %}<option value="{{p.id}}" {{'selected' if provider and p.id==provider.id else ''}}>{{p.name}}</option>{% endfor %}</select></label>
+</form></section>
+{% if error %}<p class="error">{{error}}</p>{% endif %}
+{% if persona and provider %}<section class="record-details"><form method="post" class="network-fields">
+<div class="detail-toolbar"><strong><a href="/edit/persona?id={{persona.id}}">{{persona.name}}</a> → <a href="/edit/provider?id={{provider.id}}">{{provider.name}}</a></strong></div>
+{% for field in fields %}<div class="field"><label for="{{field.key}}">{{field.label}}</label><input id="{{field.key}}" name="{{field.key}}" value="{{field.value}}" placeholder="{{field.default or 'Provider default'}}" maxlength="100"></div>{% else %}<span class="badge neutral">Provider-managed network</span>{% endfor %}
+{% if fields %}<button class="btn primary">Save</button>{% endif %}
+</form></section>{% endif %}
+{% endblock %}

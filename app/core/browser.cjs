@@ -85,6 +85,7 @@ async function main() {
   const browser = await connect();
   try {
     const browserCDP = await browser.target().createCDPSession();
+    if (input.action === 'alive') return {alive:true};
     if (input.action === 'create_context') {
       const {browserContextId} = await browserCDP.send('Target.createBrowserContext', {disposeOnDetach: false});
       return {cdp: browser.wsEndpoint(), browser_context_id: browserContextId};
@@ -101,6 +102,13 @@ async function main() {
       : browser.defaultBrowserContext();
     if (!context) throw Error('Owned browser context is unavailable');
     const contextArgs = input.browserContextId ? {browserContextId: input.browserContextId} : {};
+    if (input.action === 'egress') {
+      const page = await context.newPage();
+      try {
+        await page.goto(input.url, {waitUntil:'domcontentloaded', timeout:15000});
+        return JSON.parse(await page.evaluate(() => document.body.innerText));
+      } finally { await page.close(); }
+    }
     const findTarget = id => browser.targets().find(t => t._targetId === id && t.browserContext() === context);
     if (input.action === 'capture') return await capture(browser, input.sites, input.browserContextId);
     if (input.action === 'environment') {
@@ -127,6 +135,50 @@ async function main() {
       const page = await context.newPage();
       return {targetId: page.target()._targetId};
     }
+    if (input.action === 'watch_session') {
+      // Sidecar only: clients connect directly to the provider. No traffic relay.
+      const pending = new Set();
+      const configured = new Set();
+      async function attach(target) {
+        if (target.type() !== 'page' || target.browserContext() !== context || configured.has(target._targetId)) return;
+        configured.add(target._targetId);
+        const page = await target.page();
+        if (page) await configure(page, input.appliedSettings || input.settings, input.state);
+      }
+      function added(target) {
+        const task = attach(target).catch(error => {
+          // Probe/automation tabs may close while their CDP settings are in flight.
+          // A destroyed target has no remaining page whose settings can be wrong.
+          if (!browser.targets().some(t => t._targetId === target._targetId) ||
+              /Target closed|Session closed|No target with given id|Connection closed/i.test(error.message)) return;
+          fs.writeFileSync(path.join(input.work, 'session-settings-error'),
+            String(error.message).replace(/(?:https?|wss?):\/\/\S+/g, '[URL]').slice(0, 400));
+        }).finally(() => pending.delete(task));
+        pending.add(task);
+      }
+      browser.on('targetcreated', added);
+      for (const target of browser.targets()) await attach(target);
+      fs.writeFileSync(path.join(input.work, 'session-watch.ready'), 'ready');
+      await new Promise(resolve => {
+        let probing = false;
+        const timer = setInterval(async () => {
+          if (fs.existsSync(path.join(input.work, 'session-watch.stop'))) {clearInterval(timer); resolve();}
+          if (input.browserContextId && !probing) {
+            probing = true;
+            try {
+              const {browserContextIds} = await browserCDP.send('Target.getBrowserContexts');
+              if (!browserContextIds.includes(input.browserContextId)) {clearInterval(timer); resolve();}
+            } catch { clearInterval(timer); resolve(); }
+            finally { probing = false; }
+          }
+        }, 1000);
+        browser.once('disconnected', () => {clearInterval(timer); resolve();});
+      });
+      browser.off('targetcreated', added);
+      await Promise.all(pending);
+      fs.writeFileSync(path.join(input.work, 'session-watch.ended'), 'ended');
+      return {stopped:true};
+    }
     if (input.action === 'navigate') {
       const target = findTarget(input.target);
       if (!target) throw Error('Browser tab unavailable');
@@ -138,7 +190,7 @@ async function main() {
       if (!target) throw new Error('The check browser tab is no longer available');
       const page = await target.page();
       // Keep this connection alive: emulation and preload scripts belong to it.
-      await configure(page, input.appliedSettings || input.settings, input.state);
+      if (!input.settingsManaged) await configure(page, input.appliedSettings || input.settings, input.state);
       const cdp = await page.createCDPSession();
       const live = path.join(input.work, 'live.jpg');
       let frames = 0, ending = false;

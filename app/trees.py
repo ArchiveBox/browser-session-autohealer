@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 
 from plain.http import NotFoundError404
 
-from .core import browser_settings, health, usage
+from .core import browser_settings, health, network, usage
 from .core.agent_sessions import sessions_for
 from .core.models import (
     Account,
@@ -11,6 +11,7 @@ from .core.models import (
     CheckRun,
     CheckRunStep,
     CheckType,
+    IPUsage,
     Persona,
     Provider,
     Run,
@@ -18,7 +19,7 @@ from .core.models import (
 )
 from .views import Base
 
-TITLES = {'runs': 'Browser Sessions', 'personas': 'Personas', 'sites': 'Sites',
+TITLES = {'ips': 'IPs', 'runs': 'Browser Sessions', 'personas': 'Personas', 'sites': 'Sites',
           'checks': 'Tasks', 'agents': 'AI Sessions', 'types': 'Task Types', 'providers': 'Browser Providers'}
 ICONS = {'runs': '◷', 'personas': '◎', 'sites': '▦', 'checks': '✓', 'agents': '✦', 'types': '⌘', 'providers': '▱'}
 
@@ -81,7 +82,7 @@ def provider_table(providers):
                                      tone='success' if provider.enabled else 'neutral'),
             cell(Run.query.filter(provider=provider, status__in=health.ACTIVE).count()),
             cell(Run.query.filter(provider=provider).count()), cell(images=shots, aligned=True)],
-            links=[('Settings', f'/edit/provider?id={provider.id}')]))
+            links=[('Settings', f'/edit/provider?id={provider.id}'), ('Network', f'/edit/network?provider={provider.id}'), ('IPs', f'/?view=ips&provider={provider.id}')]))
     return {**table('providers', ['Provider', 'Runtime', 'Status', 'Active', 'Sessions', 'Last results'], rows),
             'tree_result_columns': columns}
 
@@ -166,7 +167,7 @@ def session_table(runs, selected='', check=''):
     for session in health.session_rows(runs):
         r = session['run']
         rows.append(node('runs', r.id, [cell(r.persona.name, f'#{r.id}', icon='◷', href=f'/edit/persona?id={r.persona.id}'),
-            cell(r.provider.name, color=r.provider.display_color, href=f'/edit/provider?id={r.provider.id}'), cell(session['source']),
+            cell(r.provider.name, color=r.provider.display_color, href=f'/edit/provider?id={r.provider.id}'), cell(session['source'], ' · '.join(network.label(o['ip'], o['geo'])['text'] for o in r.runtime.get('ip_observations', [])[-1:])),
             cell(session['disposition'], badge=True, tone=session['tone']),
             cell(health.time_label(r.started_at) if r.started_at else 'Queued'),
             cell(health.time_label(r.finished_at) if r.finished_at else '—', session['duration']),
@@ -204,7 +205,29 @@ def root_table(kind, params):
     except ValueError:
         page = 1
     offset = (page - 1) * 100
-    if kind == 'runs':
+    if kind == 'ips':
+        query = IPUsage.query.join('run__persona', 'run__provider').order_by('-ended_at')
+        for key, field in (('provider', 'run__provider__id'), ('persona', 'run__persona__id'), ('ip', 'ip')):
+            if params.get(key):
+                query = query.filter(**{field: params[key]})
+        rows = []
+        for entry in query[offset:offset+100]:
+            run = entry.run
+            location = network.label(entry.ip, entry.geo)
+            results = list(CheckRun.query.filter(run=run).order_by('check_id', '-created_at'))
+            latest = {c.check_id: c for c in reversed(results)}
+            shots = []
+            for c in latest.values():
+                plan = next((p for p in run.plan if p['id']==c.check_id), {})
+                shots.append({'url': health.result_image(c)[0], 'tone': 'success' if c.passed else 'failed',
+                    'domain': plan.get('domain', ''), 'label': plan.get('name', ''),
+                    'href': f'/runs/{run.id}/checks/{c.check_id}', 'missing': 'expected', 'symbol': '!'})
+            rows.append(node('ips', entry.id, [cell(**location), cell(run.persona.name, href=f'/edit/persona?id={run.persona.id}'),
+                cell(run.provider.name, color=run.provider.display_color, href=f'/edit/provider?id={run.provider.id}'),
+                cell(f'#{run.id}', href=f'/runs/{run.id}'), cell(health.time_label(entry.started_at)),
+                cell(health.time_label(entry.ended_at)), cell(images=shots)], links=[('Same IP', f'/?view=ips&ip={entry.ip}')]))
+        result = table(kind, ['IP / location', 'Persona', 'Provider', 'Session', 'Started', 'Ended', 'Results'], rows)
+    elif kind == 'runs':
         query = Run.query.join('persona', 'provider').order_by('-created_at')
         result = session_table(query[offset:offset+100], params.get('run', ''), params.get('check', ''))
     elif kind == 'personas':
@@ -223,7 +246,7 @@ def root_table(kind, params):
                 cell(f"{counts['passed']}/{counts['total']}", 'Passed', badge=True,
                      tone='success' if counts['total'] and counts['passed'] == counts['total'] else 'attention' if counts['failed'] else 'neutral'),
                 cell(' · '.join(str(p.config[k]) for k in ('locale', 'timezone', 'platform') if p.config.get(k))), tokens(totals.get(p.id)), evidence(related)],
-                links=[('Lineage', f'/personas/{p.id}/lineage'), ('Settings', f'/personas/{p.id}'), ('Integrations', f'/integrations?scope=persona:{p.id}')]))
+                links=[('Lineage', f'/personas/{p.id}/lineage'), ('Settings', f'/personas/{p.id}'), ('Network', f'/edit/network?persona={p.id}'), ('IPs', f'/?view=ips&persona={p.id}'), ('Integrations', f'/integrations?scope=persona:{p.id}')]))
         result = table(kind, ['Persona', 'Sites', 'Status', 'Settings', 'Tokens', 'Screenshots'], rows)
     elif kind == 'sites':
         query = Site.query.order_by('domain')
@@ -291,7 +314,13 @@ class RelatedRecords(Base):
         ctx = super().get_template_context()
         detail = {}
         kind, identifier = self.url_kwargs['kind'], self.url_kwargs['id']
-        if kind == 'personas':
+        if kind == 'ips':
+            entry = IPUsage.query.get(id=identifier)
+            result = session_table([entry.run])
+            detail = {'detail_title': network.label(entry.ip, entry.geo)['text'], 'detail_actions': [],
+                'detail_fields': [{'label': 'Source', 'value': entry.source},
+                    {'label': 'Geo database', 'value': entry.geo.get('database', 'Unavailable')}]}
+        elif kind == 'personas':
             persona = Persona.query.get(id=identifier)
             detail = {'detail_title': persona.name, 'detail_settings': browser_settings.inventory(persona.config),
                       'detail_actions': [('Lineage', f'/personas/{persona.id}/lineage'), ('Edit', f'/edit/persona?id={persona.id}'), ('＋ Site', f'/edit/account?persona={persona.id}')],
@@ -312,7 +341,7 @@ class RelatedRecords(Base):
             result = check_table(Check.query.filter(account__id=identifier).join('account__persona', 'account__site', 'provider'))
         elif kind in {'checks', 'executions'}:
             check = Check.query.get(id=identifier)
-            detail = {'detail_title': check.name, 'detail_actions': [('Edit', f'/edit/check?id={check.id}'), ('▶ Run', f'/edit/session?check={check.id}')],
+            detail = {'detail_title': check.name, 'detail_actions': [('Edit', f'/edit/check?id={check.id}'), ('▶ Run', f'/edit/task-session?check={check.id}')],
                       'detail_fields': [{'label': 'Persona', 'value': check.account.persona.name, 'href': f'/edit/persona?id={check.account.persona.id}'},
                                         {'label': 'Site', 'value': check.account.site.domain, 'href': f'/edit/site?id={check.account.site.id}'},
                                         {'label': 'Provider', 'value': check.provider.name, 'href': f'/edit/provider?id={check.provider.id}'},

@@ -3,6 +3,7 @@
 import os
 import re
 import time
+from typing import ClassVar
 from urllib.parse import quote, urlsplit
 
 import httpx
@@ -11,11 +12,31 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Anchor(CDPAdapter):
+    network_config_fields: ClassVar[set] = {'proxy', 'country_code', 'proxy_region', 'proxy_city'}
+    network_fields: ClassVar[dict] = {'country_code': 'Country', 'proxy_region': 'Region', 'proxy_city': 'City'}
+
+    def location_options(self, location, config):
+        country = location.get('country') or config.get('country_code')
+        if not country or not any(location.get(field) for field in ('country', 'state', 'city')):
+            return {}
+        state = (location.get('state') or '').removeprefix(country.upper() + '-').lower()
+        return {
+            'proxy': True,
+            'country_code': country.lower(),
+            'proxy_region': state or None,
+            # Anchor ignores a city unless a region accompanies it.
+            'proxy_city': location.get('city') if state else None,
+        }
+
+    def session_lifetime(self, config):
+        return config.get('max_duration', 30) * 60
+
     label = "Anchor Browser"
     description = "An isolated cloud browser with portable site data and an interactive live view."
     config_help = (
         "Store ANCHOR_BROWSER_API_KEY in the ignored .env file. Configure proxy, "
-        "extra_stealth, captcha_solver, country_code, headless, max_duration and idle_timeout. "
+        "extra_stealth, captcha_solver, country_code, proxy_region, proxy_city, headless, "
+        "max_duration and idle_timeout. City routing requires a region. "
         "Proxy and extra stealth default to enabled; CAPTCHA solving defaults to disabled. "
         "Timeouts are in minutes. Native IndexedDB and OPFS transfer are not supported."
     )
@@ -42,7 +63,7 @@ class Anchor(CDPAdapter):
     def validate_config(self, config):
         unknown = set(config) - {
             "proxy", "extra_stealth", "captcha_solver", "country_code", "headless",
-            "max_duration", "idle_timeout",
+            "max_duration", "idle_timeout", 'proxy_region', 'proxy_city',
         }
         if unknown:
             raise ValueError("Unsupported Anchor Browser connection settings: " + ", ".join(sorted(unknown)))
@@ -60,8 +81,13 @@ class Anchor(CDPAdapter):
         if not config.get("proxy", True):
             if config.get("extra_stealth", True) or config.get("captcha_solver", False):
                 raise ValueError("Anchor Browser extra_stealth and captcha_solver require proxy=true")
-            if "country_code" in config:
+            if any(key in config for key in self.network_fields):
                 raise ValueError("Anchor Browser country_code requires proxy=true")
+        for key in ('proxy_region', 'proxy_city'):
+            if key in config and (not isinstance(config[key], str) or not config[key].strip()):
+                raise ValueError(f'{key} must be a nonempty name')
+        if config.get('proxy_city') and not config.get('proxy_region'):
+            raise ValueError('Anchor city requires a region')
 
     def api(self, method, path, **kwargs):
         key = os.environ.get("ANCHOR_BROWSER_API_KEY")
@@ -93,6 +119,7 @@ class Anchor(CDPAdapter):
         proxy = {"active": config.get("proxy", True), "type": "anchor_proxy"}
         if proxy["active"]:
             proxy["country_code"] = config.get("country_code", "us")
+            proxy.update({key: config['proxy_' + key] for key in ('region', 'city') if config.get('proxy_' + key)})
         # Omit profile and identities: the collection owns every checkout's state.
         result = self.api("POST", "/sessions", json={
             "session": {

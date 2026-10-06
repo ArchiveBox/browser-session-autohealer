@@ -153,4 +153,4 @@ uv run plain accounts worker
 
 ---
 
-[Development](docs/development.md) · [Architecture](docs/architecture.md) · [Recovery](docs/login-recovery.md) · [Browser providers](docs/providers.md) · [Screenshot sources](docs/images/README.md)
+[Development](docs/development.md) · [Architecture](docs/architecture.md) · [Recovery](docs/login-recovery.md) · [Browser providers](docs/providers.md) · [Session API & IPs](docs/sessions.md) · [Screenshot sources](docs/images/README.md)

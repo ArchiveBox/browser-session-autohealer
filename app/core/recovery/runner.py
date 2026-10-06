@@ -5,7 +5,7 @@ import secrets
 import time
 from pathlib import Path
 
-from .. import inference, services, storage
+from .. import inference, network, services, storage
 from ..models import Check, Run
 from ..providers import adapter, browser_command, watch_browser
 from .config import Unavailable
@@ -212,6 +212,7 @@ def execute(run):
         launched = True
         run.status = "running"
         run.update(fields=["runtime", "status"])
+        network.observe(run)
         execution = services.start_check(run.id, plan)
         if run.base.coverage.get("cookies") != "native-only":
             browser_command("seed", run, state=state)
@@ -271,6 +272,7 @@ def execute(run):
         (work / "harness-context.json").write_text(json.dumps({"active": False}))
         if launched:
             try:
+                network.observe(run)
                 provider.stop(run)
                 stopped = True
             except Exception:  # noqa: BLE001 - same secret boundary applies to shutdown errors

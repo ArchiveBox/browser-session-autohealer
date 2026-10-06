@@ -29,7 +29,16 @@ an active proxy. Disabling the proxy requires explicitly disabling extra stealth
 `country_code` must then be omitted. Unsupported plans or countries fail through
 the provider API without a silent change of browser mode.
 
-Anchor proxy selection specifies a country, not continuity with the originating
+Required session locations enable the built-in proxy and replace inherited
+country, region and city routing for that launch. Country and normalized
+subdivision codes are lowercase (for example `us`, `ca`); city names may retain
+spaces. Anchor requires a region alongside a city, so a city-only request with no
+region supplies the country hint and leaves exact city matching to the independent
+observed-IP check. Changing the requested country clears previous granular
+geography. These are best-effort routing hints and cannot select an arbitrary
+exact IP. See [Anchor proxy localization](https://docs.anchorbrowser.io/advanced/proxy).
+
+Anchor proxy selection does not establish continuity with the originating
 browser's IP address. Extra stealth uses Anchor's Chromium build; neither it nor
 best-effort CDP settings establish equality with the original Brave/Chrome
 fingerprint. Persona settings remain in the canonical collection. The shared
@@ -69,6 +78,13 @@ The screenshot and diagnostics are outside the source checkout in the private
 temporary directory `anchor-adapter-deo7fh9r`. This is lifecycle and protocol
 evidence; it does not claim authenticated Hacker News, LinkedIn or X acceptance.
 Those checks must run through the real application using an authorized persona.
+
+On October 6, 2026, real required-US and preferred-US session requests passed the
+API workflow with an authorized HN persona (runs 193 and 195). Each exposed the
+owned browser directly to an independent client, observed US egress in that client
+and three saved observations, passed HN checks before and after handoff, exported
+portable state, promoted the checked-in tip, and confirmed session closure. These
+country tests do not establish state/city targeting acceptance.
 
 ## API references
 

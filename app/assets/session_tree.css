@@ -34,3 +34,7 @@
 
 .result-picture:has(.result-favicon)>.result-placeholder>.result-symbol{position:absolute;right:2px;bottom:1px;font-size:12px;line-height:1;z-index:1}
 .result-placeholder.missing-irrelevant:not([hidden])+.result-favicon{filter:grayscale(1);opacity:.5}
+
+.network-fields{max-width:780px}.network-fields .field{display:grid;grid-template-columns:160px 1fr;align-items:center;gap:12px;margin:10px 0}.network-fields input{height:36px}.network-fields .detail-toolbar{margin-bottom:18px}
+
+.record-tree[data-tree="ips"]>.record-grid,.record-tree[data-tree="ips"]>.record-node>.record-grid{grid-template-columns:minmax(115px,1.4fr) minmax(55px,.65fr) minmax(75px,.85fr) 45px minmax(60px,.75fr) minmax(60px,.75fr) minmax(74px,1fr);min-width:570px;gap:8px;padding:8px}.record-tree[data-tree="ips"] .record-images img{width:66px;height:40px}.record-tree[data-tree="ips"] .record-cell{font-size:10px}

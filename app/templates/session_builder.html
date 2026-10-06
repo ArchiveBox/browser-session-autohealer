@@ -1,0 +1,25 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{asset('session_builder.css')}}">
+<div class="heading"><h1>New Browser Session</h1><a class="btn" href="/edit/task-session">▶ Run task</a></div>
+<form method="post" id="session-builder" class="session-builder sheet-wrap">
+{% for error in form.non_field_errors %}<p class="error">{{error}}</p>{% endfor %}{% for error in form.document.errors %}<p class="error">{{error}}</p>{% endfor %}
+<input type="hidden" name="key" value="{{request_key}}"><input type="hidden" name="document" id="request-document">
+<script type="application/json" id="builder-data">{{builder|tojson}}</script>
+<div class="builder-modes" role="group" aria-label="Request editor"><button type="button" id="guided-mode" class="btn" aria-pressed="true">Choose requirements</button><button type="button" id="advanced-mode" class="btn" aria-pressed="false">Advanced conditions</button></div>
+<div id="guided-builder" class="guided-layout">
+<div class="guided-main"><section class="browser-requirements"><h2>Browser</h2><div id="browser-fields" class="condition-fields"></div></section>
+<section class="access-requirements"><div class="site-section-heading"><h2>Site access</h2><button type="button" id="add-site" class="btn">＋ Site</button></div><div id="site-requirements"></div></section></div>
+<div class="request-summary"><h2>Your session</h2><div id="session-summary" aria-live="polite"></div></div>
+</div>
+<div id="advanced-builder" hidden><label class="json-label">Conditions · JSON<textarea id="advanced-conditions" spellcheck="false" rows="12" aria-label="Conditions JSON"></textarea></label></div>
+<div class="session-options">
+<label class="toggle"><input type="checkbox" id="recheck"> Recheck before use</label>
+<label>Wait <select id="wait-mode"><option value="60">Up to 60 seconds</option><option value="0">Do not wait</option><option value="-1">Until ready</option><option value="custom">Custom</option></select><input id="timeout" type="number" min="1" max="3600" value="60" aria-label="Wait seconds" hidden></label>
+<label>Lifetime <input id="lifetime" type="number" min="30" max="259200" value="1800"> <small>seconds</small></label>
+</div>
+<details class="session-advanced"><summary>⚙ Provider options & diagnostics</summary><label class="json-label">Provider options · JSON<textarea id="provider-options" spellcheck="false" rows="3" aria-label="Provider options JSON"></textarea></label><label class="toggle"><input type="checkbox" id="allow-unhealthy"> Allow unverified session</label><label>Started by <input id="actor" value="UI" maxlength="160"></label></details>
+<details class="request-preview"><summary>⌘ API request</summary><pre id="request-preview"></pre><button type="button" class="btn" data-copy="request-preview">Copy JSON</button></details>
+<div class="availability-toolbar"><strong>Availability</strong><button type="button" class="btn quiet" id="preview-recheck">↻ Recheck before use</button></div><div id="request-availability" aria-live="polite"></div>
+<div class="actions"><button class="primary" id="create-session">＋ Create session</button><a class="btn" href="/?view=runs">Cancel</a><span id="builder-error" class="error" role="alert"></span></div>
+</form><script defer src="{{asset('session_builder.js')}}"></script>
+{% endblock %}

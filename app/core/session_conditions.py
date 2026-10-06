@@ -1,0 +1,376 @@
+"""Small typed selection language over existing persona/provider/task evidence."""
+import ipaddress
+import re
+from copy import deepcopy
+from functools import lru_cache
+from itertools import product
+
+from . import network, services, storage
+from .models import Check, CheckRun, Persona, PersonaProviderConfig, Provider
+from .providers import adapter
+from .site_scope import matches, normalize_sites, select_state
+
+
+def validate(document):
+    if not isinstance(document, dict):
+        raise TypeError('A JSON object is required')
+    allowed = {'require_all', 'prefer', 'recheck', 'timeout', 'allow_unhealthy',
+               'provider_options', 'lifetime', 'actor'}
+    if set(document) - allowed:
+        raise ValueError('Unknown request fields: ' + ', '.join(sorted(set(document) - allowed)))
+    spec = {'require_all': [], 'prefer': [], 'recheck': False, 'timeout': 0,
+            'allow_unhealthy': False, 'provider_options': {}, 'lifetime': 1800, 'actor': 'API', **deepcopy(document)}
+    for key in ('recheck', 'allow_unhealthy'):
+        if type(spec[key]) is not bool:
+            raise ValueError(f'{key} must be a boolean')
+    if spec['recheck'] and spec['allow_unhealthy']:
+        raise ValueError('A recheck always requires passing results')
+    for key, low, high in (('timeout', -1, 3600), ('lifetime', 30, 259200)):
+        if type(spec[key]) is not int or not low <= spec[key] <= high:
+            raise ValueError(f'{key} must be an integer between {low} and {high}')
+    if not isinstance(spec['provider_options'], dict):
+        raise TypeError('provider_options must be an object')
+    if not isinstance(spec['actor'], str) or len(spec['actor']) > 160:
+        raise ValueError('actor must be a string of at most 160 characters')
+    count = 0
+
+    def condition(item, depth=0):
+        nonlocal count
+        count += 1
+        if count > 100 or depth > 5 or not isinstance(item, dict):
+            raise ValueError('Conditions must be objects, at most 100 and five levels deep')
+        groups = set(item) & {'require_all', 'require_any', 'not'}
+        if groups:
+            if len(item) != 1:
+                raise ValueError('A Boolean group must contain exactly one operator')
+            op = next(iter(groups))
+            children = [item[op]] if op == 'not' else item[op]
+            if not isinstance(children, list) or not children:
+                raise ValueError('Boolean groups cannot be empty')
+            for child in children:
+                condition(child, depth + 1)
+            if op == 'not' and any(v['type'] == 'task' for v in leaves(children)):
+                raise ValueError('Task health cannot be negated; use allow_unhealthy for diagnostics')
+            return
+        kind = item.get('type')
+        fields = {'persona': {'id', 'name'}, 'provider': {'id', 'kind', 'name'},
+                  'task': {'site', 'tasks', 'status', 'max_age', 'min_passed'},
+                  'ip': {'ip', 'country', 'state', 'city'}}
+        if kind not in fields or set(item) - fields[kind] - {'type'}:
+            raise ValueError('Unknown condition type or field')
+        if len(item) < 2:
+            raise ValueError('Empty condition')
+        for key in ('id', 'name', 'kind'):
+            if key in item and (not isinstance(item[key], (str, int)) or isinstance(item[key], bool) or not str(item[key]).strip()):
+                raise ValueError(f'{key} must be a non-empty identifier')
+        if 'site' in item:
+            if not isinstance(item['site'], str):
+                raise ValueError('site must be a domain string')
+            item['site'] = normalize_sites([item['site']])[0]
+        if 'max_age' in item and (type(item['max_age']) is not int or item['max_age'] < 0):
+            raise ValueError('max_age must be nonnegative seconds')
+        if kind == 'task':
+            if 'site' not in item:
+                raise ValueError('Task conditions require a site')
+            item.setdefault('status', 'healthy')
+            item.setdefault('tasks', '*')
+            if item['status'] != 'healthy':
+                raise ValueError('Task conditions require healthy results; use allow_unhealthy for diagnostics')
+            if item['tasks'] != '*' and (not isinstance(item['tasks'], list) or not item['tasks'] or
+                    any(not isinstance(t, (str, int)) or isinstance(t, bool) for t in item['tasks'])):
+                raise ValueError('tasks must be * or a nonempty list of task IDs or exact names')
+            if 'min_passed' in item:
+                minimum = item['min_passed']
+                if type(minimum) is not int or minimum < 1:
+                    raise ValueError('min_passed must be a positive integer')
+                if item['tasks'] != '*' and minimum > len({str(t) for t in item['tasks']}):
+                    raise ValueError('min_passed exceeds the number of selected tasks')
+        if kind == 'ip':
+            for key in ('state', 'city'):
+                if key in item:
+                    if not isinstance(item[key], str) or not item[key].strip():
+                        raise ValueError(f'{key} must be a nonempty string')
+                    item[key] = item[key].strip()
+            if 'country' in item and not re.fullmatch('[A-Z]{2}', str(item['country'])):
+                raise ValueError('country must be a two-letter uppercase ISO code')
+            if 'ip' in item:
+                item['ip'] = str(ipaddress.ip_address(item['ip']))
+            if 'state' in item:
+                item['state'] = network.normalize_location(item)['state']
+
+    for key in ('require_all', 'prefer'):
+        if not isinstance(spec[key], list):
+            raise TypeError(f'{key} must be a list')
+        for item in spec[key]:
+            condition(item)
+    return spec
+
+
+def leaves(items):
+    for item in items:
+        if 'type' in item:
+            yield item
+        else:
+            op = next(iter(item))
+            yield from leaves([item[op]] if op == 'not' else item[op])
+
+
+def same_id(obj, value):
+    return str(value) in {str(obj.id), str(obj.uid)}
+
+
+def identity_matches(obj, condition):
+    return all(same_id(obj, value) if key == 'id' else getattr(obj, key) == value
+               for key, value in condition.items() if key != 'type')
+
+
+def configured_checks(persona, provider, spec):
+    checks = list(Check.query.filter(account__persona=persona, provider=provider, enabled=True, mode='check')
+                  .join('account__site'))
+    selectors = [c for c in leaves(spec['require_all']) if c['type'] == 'task']
+    if selectors:
+        selectors += [c for c in leaves(spec['prefer']) if c['type'] == 'task']
+        checks = [c for c in checks if any(task_matches(c, s) for s in selectors)]
+    return [c for c in checks if matches(c.account.site.domain, provider.site_scope)
+            and matches(c.account.site.domain, persona.config.get('siteScope'))]
+
+
+def task_matches(check, condition):
+    keys = condition.get('tasks', '*')
+    return check.account.site.domain == condition['site'] and (keys == '*' or
+        any(str(key) in {str(check.id), str(check.uid), check.name} for key in keys))
+
+
+def effective_config(persona, provider, overrides=None):
+    binding = PersonaProviderConfig.query.filter(persona=persona, provider=provider).first()
+    config = {**provider.config, **(binding.config if binding else {}), **(overrides or {})}
+    config = {key: value for key, value in config.items() if value is not None}
+    adapter(provider).validate_config(config)
+    return config
+
+
+def location_hint(spec, persona, provider):
+    """Choose compatible positive routing hints; observed IPs decide readiness."""
+    def combine(a, b):
+        country = a.get('country') or b.get('country')
+        a, b = (network.normalize_location({'country': country, **v}) if country else v for v in (a, b))
+        if any(str(a[k]).casefold() != str(b[k]).casefold() for k in a.keys() & b.keys()):
+            return None
+        return network.normalize_location({**a, **b})
+
+    def choices(c):
+        kind = c.get('type')
+        if kind == 'ip':
+            return [{k: v for k, v in c.items() if k != 'type'}]
+        if kind in {'persona', 'provider'}:
+            return [{}] if identity_matches(persona if kind == 'persona' else provider, c) else []
+        if kind or 'not' in c:
+            return [{}]
+        if 'require_any' in c:
+            return [v for child in c['require_any'] for v in choices(child)]
+        rows = [{}]
+        for child in c['require_all']:
+            rows = [v for a, b in product(rows, choices(child)) if (v := combine(a, b)) is not None]
+            if len(rows) > 100:
+                raise ValueError('Too many location alternatives')
+        return rows
+
+    def matches_hint(c, hint):
+        kind = c.get('type')
+        if kind == 'ip':
+            expected = network.normalize_location({**({'country': hint['country']} if hint.get('country') else {}),
+                                                   **{k: v for k, v in c.items() if k != 'type'}})
+            values = [None if k not in hint else str(hint[k]).casefold() == str(v).casefold()
+                      for k, v in expected.items()]
+            return False if False in values else None if None in values else True
+        if kind in {'persona', 'provider'}:
+            return identity_matches(persona if kind == 'persona' else provider, c)
+        if kind:
+            return None  # Task evidence is evaluated independently.
+        if 'not' in c:
+            value = matches_hint(c['not'], hint)
+            return None if value is None else not value
+        op = next(iter(c))
+        values = [matches_hint(child, hint) for child in c[op]]
+        if op == 'require_all':
+            return False if False in values else None if None in values else True
+        return True if True in values else None if None in values else False
+
+    required = {'require_all': spec['require_all']}
+    rows = choices(required)
+    if not rows and any(c['type'] == 'ip' for c in leaves(spec['require_all'])):
+        raise ValueError('Location requirements conflict with this selection')
+    for preference in spec['prefer']:
+        rows = [v for a, b in product(rows, choices(preference)) if (v := combine(a, b)) is not None] + rows
+        rows = list({tuple(sorted(v.items())): v for v in rows}.values())
+        if len(rows) > 100:
+            raise ValueError('Too many location alternatives')
+    rows = [v for v in rows if matches_hint(required, v) is not False]
+    return max(rows, key=lambda v: tuple(matches_hint(c, v) is True for c in spec['prefer']), default={})
+
+
+def request_config(spec, persona, provider):
+    config = effective_config(persona, provider, spec['provider_options'])
+    hint = location_hint(spec, persona, provider)
+    routing = adapter(provider).location_options(hint, config)
+    config = {k: v for k, v in {**config, **routing}.items() if v is not None}
+    adapter(provider).validate_config(config)
+    # Country is shared across all proxy adapters. Finer hints are best effort
+    # and may be omitted or plan-gated; do not score them as observed matches.
+    return config, {'country': hint['country']} if routing and hint.get('country') else {}
+
+
+def persona_settings(persona, provider):
+    settings = dict(persona.config)
+    if provider.site_scope is not None:
+        allowed = normalize_sites(provider.site_scope)
+        configured = normalize_sites(settings.get('siteScope'))
+        settings['siteScope'] = normalize_sites([s for s in dict.fromkeys([*(configured or []), *allowed])
+            if matches(s, configured) and matches(s, allowed)])
+    return settings
+
+
+@lru_cache(maxsize=64)
+def site_state(digest, site):
+    # Checkpoints are immutable, so this cache cannot hide changed cookie values.
+    state = select_state(storage.read_state(digest), [site])
+    return {'cookies': sorted(state['cookies'], key=storage.cookie_key), 'origins': state['origins']}
+
+
+def task_health(check, config, *, run=None, fresh=False, max_age=None):
+    query = CheckRun.query.filter(check_id=check.id)
+    if fresh:
+        query = query.filter(run=run)
+    result = query.order_by('-created_at', '-id').first()
+    if not result or result.status == 'running':
+        return 'pending', result
+    if result.status != 'success' or not result.passed:
+        return 'failed', result
+    if not result.ended_at or (services.now() - result.ended_at).total_seconds() > (max_age if max_age is not None else check.interval_seconds):
+        return 'stale', result
+    runtime = adapter(check.provider)
+    recorded_config = result.run.runtime.get('provider_config')
+    expected_settings = run.runtime['settings'] if run else persona_settings(check.account.persona, check.provider)
+    if (recorded_config is None or result.run.runtime.get('provider_kind') != check.provider.kind
+            or runtime.task_health_config(recorded_config) != runtime.task_health_config(config)
+            or result.run.runtime.get('settings') != expected_settings):
+        return 'changed', result
+    plan = next((p for p in result.run.plan if p['id'] == check.id), {})
+    if plan.get('instruction') != check.instruction or plan.get('url') != check.url:
+        return 'changed', result
+    if not fresh:
+        digest = run.base.digest if run else services.leader_for(check.account.persona).checkpoint.digest
+        observed = result.run.tip or result.run.base.digest
+        if site_state(digest, check.account.site.domain) != site_state(observed, check.account.site.domain):
+            return 'changed', result
+    return 'healthy', result
+
+
+def evaluate(spec, persona, provider, *, run=None, preparing=False, observation=Ellipsis):
+    config, routed_hint = request_config(spec, persona, provider) if run is None else (run.runtime['provider_config'], {})
+    checks = configured_checks(persona, provider, spec)
+    results = []
+    fresh = bool(spec['recheck'] and run)
+
+    def test(c, path, negate=False):
+        if 'type' not in c:
+            op = next(iter(c))
+            if op == 'not':
+                value = test(c[op], path + '/not', not negate)
+                return value if value in (None, Ellipsis) else not value
+            start = len(results)
+            children = [test(v, f'{path}/{op}/{i}', negate) for i, v in enumerate(c[op])]
+            if op == 'require_all':
+                value = False if False in children else None if None in children else Ellipsis if Ellipsis in children else True
+            else:
+                value = True if True in children else Ellipsis if Ellipsis in children else None if None in children else False
+            if value is Ellipsis or (value is not None and (not value if negate else value)):
+                del results[start:]  # Satisfied alternatives are not blockers.
+            return value
+        kind, reason, counts = c['type'], '', {}
+        ok = True
+        if kind in {'persona', 'provider'}:
+            obj = persona if kind == 'persona' else provider
+            ok = identity_matches(obj, c)
+            reason = 'not_matched'
+        elif kind == 'task':
+            selected = [t for t in checks if task_matches(t, c)]
+            keys = c.get('tasks', '*')
+            complete = bool(selected) and (keys == '*' or all(any(str(k) in {str(t.id), str(t.uid), t.name} for t in selected) for k in keys))
+            minimum = c.get('min_passed', len(selected))
+            if not selected or ('min_passed' not in c and not complete):
+                ok, reason = False, 'no_checks'
+            elif path.startswith('/require_all') and ((preparing and spec['recheck']) or spec['allow_unhealthy']):
+                ok, reason = len(selected) >= minimum, 'not_enough_checks'
+            else:
+                evidence = [(t, *task_health(t, config, run=run, fresh=fresh, max_age=c.get('max_age'))) for t in selected]
+                states = [state for _, state, _ in evidence]
+                passed = states.count('healthy')
+                counts = {'passed': passed, 'required': minimum, 'total': len(selected), 'checks': [
+                    {'name': t.name, 'state': state, 'result_id': result.id if result else None,
+                     'ended_at': result.ended_at.isoformat() if result and result.ended_at else None,
+                     'max_age': c.get('max_age', t.interval_seconds)} for t, state, result in evidence]}
+                ok = passed >= minimum
+                reason = 'not_enough_passing_checks' if 'min_passed' in c else next((s for s in states if s != 'healthy'), '')
+        else:
+            if run is None:
+                if any(k in c for k in ('country', 'state', 'city')) and network.database_error():
+                    results.append({'pointer': path, 'condition': c, 'matched': False, 'reason': 'geolocation_unavailable'})
+                    return None
+                if path.startswith('/prefer') and routed_hint:
+                    # Rank a supported routing attempt, not a claim about observed geography.
+                    return all(str(routed_hint.get(k, '')).casefold() == str(v).casefold()
+                               for k, v in c.items() if k != 'type')
+                return Ellipsis  # Deferred until allocation, distinct from missing evidence.
+            observations = run.runtime.get('ip_observations', [])
+            record = (observations[-1] if observations else None) if observation is Ellipsis else observation
+            ok, reason = True if record else None, 'unknown_ip'
+            if record:
+                for key in ('ip', 'country', 'state', 'city'):
+                    if ok is None:
+                        break
+                    if key in c:
+                        value = record['ip'] if key == 'ip' else record['geo'].get(key)
+                        if not value:
+                            ok, reason = None, 'unknown_location'
+                            break
+                        expected = network.normalize_location({**record['geo'], **c}).get(key)
+                        if str(value).casefold() != str(expected).casefold():
+                            ok, reason = False, 'not_matched'
+        matched = ok is not None and (not ok if negate else ok)
+        results.append({'pointer': path, 'condition': c, 'matched': matched, 'reason': '' if matched else reason, **counts})
+        return ok
+
+    matched = [test(c, f'/require_all/{i}') for i, c in enumerate(spec['require_all'])]
+    if not spec['allow_unhealthy']:
+        if not checks:
+            matched.append(False)
+            results.append({'pointer': '/require_all', 'matched': False, 'reason': 'no_checks'})
+        elif not (preparing and spec['recheck']) and not any(c['type'] == 'task' for c in leaves(spec['require_all'])):
+            # Explicit task clauses own their age limits and Boolean grouping.
+            for check in checks:
+                matched.append(test({'type': 'task', 'site': check.account.site.domain,
+                                     'tasks': [str(check.uid)]}, '/require_all'))
+    score = tuple(test(c, f'/prefer/{i}') is True for i, c in enumerate(spec['prefer']))
+    return (False not in matched and None not in matched and (preparing or Ellipsis not in matched)), score, [r for r in results if not r['matched'] and r['pointer'].startswith('/require_all')], checks, config
+
+
+def candidates(spec):
+    rows = []
+    # Direct selectors narrow the search, rather than reporting unrelated browsers as failures.
+    def selected(kind, objects):
+        selectors = [c for c in spec['require_all'] if c.get('type') == kind]
+        return [obj for obj in objects if all(identity_matches(obj, c) for c in selectors)]
+
+    personas = selected('persona', Persona.query.order_by('id'))
+    providers = selected('provider', Provider.query.filter(enabled=True).order_by('id'))
+    for persona in personas:
+        for provider in providers:
+            try:
+                ok, score, unmet, checks, config = evaluate(spec, persona, provider, preparing=True)
+                adapter(provider).validate_handoff(config)
+            except (ValueError, OSError) as exc:
+                ok, score, unmet, checks, config = False, (), [{'pointer': '/provider_options', 'reason': str(exc)}], [], {}
+            rows.append({'persona': persona, 'provider': provider, 'eligible': ok, 'score': score,
+                         'unmet': unmet, 'checks': checks, 'config': config})
+    return sorted(rows, key=lambda r: (r['eligible'], r['score']), reverse=True)

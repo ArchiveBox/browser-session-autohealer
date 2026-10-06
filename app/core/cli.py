@@ -49,6 +49,17 @@ def discover():
     click.echo(json.dumps(discover(), indent=2))
 
 
+@cli.command()
+@click.option('--force', is_flag=True, help='Check for a new GeoLite2 City release now')
+def geoip(force):
+    """Inspect or update the automatically managed GeoLite2 City database."""
+    from . import network
+
+    if not network.ensure_database(force=force) or network.database_error():
+        raise click.ClickException('GeoIP update failed; see the application log')
+    click.echo(str(network.database_path()))
+
+
 @cli.command("import")
 @click.option("--name", required=True)
 @click.option("--profile", required=True, type=click.Path(exists=True, file_okay=False))
@@ -120,3 +131,11 @@ def agent():
     click.echo(
         "OpenCode ready in Browser Session Autohealer: http://127.0.0.1:8421/agents"
     )
+
+
+@cli.command()
+@click.option('--once', is_flag=True)
+def broker(once):
+    """Prepare and finalize external sessions alongside the independent task worker."""
+    from .session_broker import loop
+    loop(once=once)
