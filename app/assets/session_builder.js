@@ -85,8 +85,8 @@ document.addEventListener('click', async event => {
       age.min='0';age.step='any';age.placeholder='Task interval';return;
     }
     field(body,'Observed',condition.source||'session',v=>condition.source=v,[['session','This session'],['last_successful_session','Last successful session']]).parentElement.classList.add('wide-field');
-    [['country','Country · US'],['state','State · NJ'],['city','City'],['ip','IP address']].forEach(([key,label])=>field(body,label,condition[key],v=>set(key,key==='country'?v.toUpperCase():v)));
-    field(body,'Route',condition.site||'',v=>set('site',v),[['','Any route'],...sites.map(s=>[s,s])]);
+    [['country','Country'],['state','State'],['city','City'],['ip','IP address']].forEach(([key,label])=>field(body,label,condition[key],v=>set(key,key==='country'?v.toUpperCase():v)));
+    field(body,'Site',condition.site||'',v=>set('site',v),[['','Any site'],...sites.map(s=>[s,s])]);
     const age=field(body,'Freshness · minutes',condition.max_age===undefined?'':condition.max_age/60,v=>set('max_age',v===''?'':Math.round(Number(v)*60)),null,'number');age.min='0';age.placeholder='Any age';
   }
   function list(parent, items, ordered=false) {

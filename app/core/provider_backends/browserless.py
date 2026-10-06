@@ -15,7 +15,7 @@ from ..providers import CDPAdapter, provider_config
 
 class Browserless(CDPAdapter):
     egress_scope = 'session'  # This adapter always requests proxySticky=true; no per-domain routes.
-    network_fields: ClassVar[dict] = {'proxy_country': 'Country · us', 'proxy_state': 'State · newjersey', 'proxy_city': 'City · newark'}
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country', 'proxy_state': 'State', 'proxy_city': 'City'}
 
     def session_lifetime(self, config):
         return config.get('session_timeout_ms', 120000) // 1000

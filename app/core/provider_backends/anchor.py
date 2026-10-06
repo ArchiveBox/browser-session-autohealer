@@ -12,7 +12,7 @@ from ..providers import CDPAdapter, provider_config
 
 
 class Anchor(CDPAdapter):
-    network_fields: ClassVar[dict] = {'country_code': 'Country · us', 'proxy_region': 'Region · new jersey', 'proxy_city': 'City · newark'}
+    network_fields: ClassVar[dict] = {'country_code': 'Country', 'proxy_region': 'Region', 'proxy_city': 'City'}
 
     def session_lifetime(self, config):
         return config.get('max_duration', 30) * 60

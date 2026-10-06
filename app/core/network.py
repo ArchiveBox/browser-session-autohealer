@@ -43,6 +43,10 @@ def label(ip, geo):
     return {'text': f'{flag} {ip}', 'sub': location or '—'}
 
 
+def scope_label(scope):
+    return {'probe': 'IP check', 'session': 'Whole session'}.get(scope, scope)
+
+
 def record(run, ip, *, source='browser', scope='probe'):
     ip = str(ipaddress.ip_address(ip))
     if not isinstance(scope, str) or len(scope) > 255 or scope not in {'probe', 'session', *run.runtime.get('account_scopes', [])}:

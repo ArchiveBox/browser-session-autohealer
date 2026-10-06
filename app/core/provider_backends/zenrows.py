@@ -16,7 +16,7 @@ from ..providers import CDPAdapter, provider_config
 
 
 class ZenRows(CDPAdapter):
-    network_fields: ClassVar[dict] = {'proxy_country': 'Country · us', 'proxy_region': 'Region · na'}
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country', 'proxy_region': 'Region'}
 
     def validate_handoff(self, config):
         raise ValueError('ZenRows currently requires a connection relay; direct session handoff is unavailable')

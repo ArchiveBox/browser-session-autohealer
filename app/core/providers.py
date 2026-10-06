@@ -398,7 +398,7 @@ class Local(CDPAdapter):
 
 
 class Browserbase(CDPAdapter):
-    network_fields: ClassVar[dict] = {'proxy_country': 'Country · US', 'proxy_state': 'State · NJ', 'proxy_city': 'City · Newark'}
+    network_fields: ClassVar[dict] = {'proxy_country': 'Country', 'proxy_state': 'State', 'proxy_city': 'City'}
     label = "Browserbase"
     description = "An isolated cloud browser with portable site data and an interactive live view."
     config_help = "Set project_id, region, verified (true/false) and residential_proxies (true/false). Store BROWSERBASE_API_KEY in the ignored .env file. Verified and residential proxies default to enabled; unsupported plans fail explicitly. Native IndexedDB and OPFS transfer are not supported."
