@@ -121,6 +121,14 @@ class Anchor(CDPAdapter):
             proxy["country_code"] = config.get("country_code", "us")
             proxy.update({key: config['proxy_' + key] for key in ('region', 'city') if config.get('proxy_' + key)})
         # Omit profile and identities: the collection owns every checkout's state.
+        from ..twocaptcha import enabled, uploaded_extension
+        extensions = {}
+        if enabled(run):
+            def upload(package):
+                with package['archive'].open('rb') as file:
+                    return self.api('POST', '/extensions', data={'name': 'Autohealer 2Captcha'},
+                        files={'file': ('twocaptcha.zip', file, 'application/zip')})['id']
+            extensions['extensions'] = [uploaded_extension('anchor', os.environ.get('ANCHOR_BROWSER_API_KEY', ''), upload)]
         result = self.api("POST", "/sessions", json={
             "session": {
                 "recording": {"active": False},
@@ -131,10 +139,11 @@ class Anchor(CDPAdapter):
                 "proxy": proxy,
             },
             "browser": {
+                **extensions,
                 "viewport": {key: viewport.get(key, default) for key, default in (("width", 1440), ("height", 1000))},
                 "headless": {"active": config.get("headless", False)},
                 "extra_stealth": {"active": config.get("extra_stealth", True)},
-                "captcha_solver": {"active": config.get("captcha_solver", False)},
+                "captcha_solver": {"active": False if enabled(run) else config.get("captcha_solver", False)},
                 "adblock": {"active": False},
                 "popup_blocker": {"active": False},
                 "tracing": {"active": False, "sources": False, "snapshots": False},

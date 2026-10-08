@@ -20,6 +20,9 @@ Read only: never vote, post, send messages, submit forms, log out, change accoun
 settings, or follow an auth/verification link. You may navigate and scroll.
 Report login/captcha/OTP/consent/promo/rate-limit blockers without trying to
 bypass them. Login recovery runs in a separate session with its own tools.
+The browser may already have an automatic CAPTCHA solver. If it is visibly
+solving, wait for its result before classifying the page as blocked. Never
+configure the solver, inspect its key, or solve a challenge manually.
 If a check requires an account, verify its visible identity, not merely a cookie
 or public profile. A public user page alone does not prove authentication.
 

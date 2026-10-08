@@ -149,6 +149,17 @@ class Kernel(CDPAdapter):
             "timeout_seconds": config.get("timeout_seconds", 1800),
             **({'region': config['region']} if 'region' in config else {}),
         }
+        from ..twocaptcha import enabled, uploaded_extension
+        if enabled(run):
+            # Kernel couples its managed CAPTCHA solver to stealth. Two solvers
+            # race the same challenge; BYO solvers require a non-stealth browser.
+            # Explicit proxy selections below still apply.
+            options['stealth'] = False
+            def upload(package):
+                with package['archive'].open('rb') as file:
+                    return self.api('POST', '/extensions',
+                        files={'file': ('twocaptcha.zip', file, 'application/zip')}).json()['id']
+            options['extensions'] = [{'id': uploaded_extension('kernel', os.environ.get('KERNEL_API_KEY', ''), upload)}]
         routing = None
         try:
             proxy = self.location_proxy(config) if config.get('proxy_country') else config.get('proxy')

@@ -12,14 +12,13 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from uuid import uuid4
 
 import httpx
 import pytest
 from plain.runtime import settings
 
 from app.core import network
-from app.core.models import Check, CheckRun, IPUsage, Provider, Run, SessionRequest
+from app.core.models import Check, CheckRun, IPUsage, Run, SessionRequest
 from app.core.providers import host_browser_invocation
 from app.core.session_conditions import evaluate, validate
 
@@ -218,26 +217,6 @@ def test_failed_latest_probe_invalidates_older_ip_evidence(location_api):
     finally:
         cancel(location_api, url)
 
-
-def test_zenrows_direct_handoff_rejected_without_checkout(location_api):
-    provider = Provider.query.filter(kind='zenrows', enabled=True).first()
-    assert provider, 'Configure an enabled real ZenRows provider'
-    actor = 'Location rejection ' + str(uuid4())
-    response = location_api.post('/api/sessions', json={
-        'require_all': [{'type': 'provider', 'id': str(provider.uid)}],
-        'allow_unhealthy': True, 'timeout': 0, 'actor': actor,
-    })
-    assert response.status_code == 409
-    assert response.headers['content-type'].startswith('application/problem+json')
-    request = response.json()['request']
-    assert request['status'] == 'failed' and request['detail']['code'] == 'conditions_unmet'
-    assert 'cdp_url' not in request and 'session_id' not in request
-    assert not Run.query.filter(actor=actor).exists()
-    candidates = request['detail']['candidates']
-    assert candidates and all(c['provider_id'] == str(provider.uid) for c in candidates)
-    assert all(any('direct session handoff is unavailable' in u['reason']
-                   for u in c['unmet']) for c in candidates)
-    assert SessionRequest.query.get(uid=request['id']).run is None
 
 
 def test_nonmatching_ip_blocks_before_account_navigation(location_api):

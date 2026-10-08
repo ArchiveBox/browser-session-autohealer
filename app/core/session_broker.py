@@ -165,6 +165,8 @@ def prepare(request_id):
         launched = runtime.launch(run)
         run.runtime = {**run.runtime, **launched}
         run.update(fields=['runtime'])
+        from .twocaptcha import configure_browser
+        configure_browser(run)
         stage = 'restore'
         if run.base.coverage.get('cookies') != 'native-only':
             browser_command('seed', run, state=saved)

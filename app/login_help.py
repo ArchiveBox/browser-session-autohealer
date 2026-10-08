@@ -12,6 +12,8 @@ from .views import Base
 
 CONNECTORS = config.CONNECTORS
 OPTIONS = {
+    'twocaptcha': [('retry_count', 'Retries on solver error'), ('retry_delay', 'Retry delay (seconds)'),
+                   ('auto_submit', 'Submit forms after solving')],
     'onepassword': [('username_ref', 'Username reference'), ('password_ref', 'Password reference'),
                     ('otp_ref', 'Authenticator code reference')],
     'imap': [('senders', 'Allowed senders'), ('recipient', 'Recipient email'), ('subject', 'Subject contains'),
@@ -20,6 +22,7 @@ OPTIONS = {
     'imessage': [('senders', 'Allowed phone numbers'), ('chat_id', 'Conversation ID'), ('pattern', 'Code pattern')],
 }
 CONNECTION_FIELDS = {
+    'twocaptcha': [('api_key', '2Captcha API key')],
     'onepassword': [('vault', 'Vault name or ID'), ('account', '1Password account')],
     'imap': [('host', 'IMAP server'), ('port', 'Port'), ('username', 'Mailbox login'),
              ('password_ref', 'Mailbox password reference'), ('mailbox', 'Mailbox folder'),
@@ -98,11 +101,23 @@ class Integrations(Base):
         fields = []
         for key, label in OPTIONS[connector]:
             value, inherited = own.get(connector, {}).get(key, ''), effective.get(key, '')
+            if type(value) is bool:
+                value = str(value).lower()
+            if type(inherited) is bool:
+                inherited = str(inherited).lower()
             fields.append({'key': key, 'label': label, 'value': ', '.join(value) if isinstance(value, list) else value,
                            'inherited': ', '.join(inherited) if isinstance(inherited, list) else inherited})
         login = own.get('login', {})
         binding = config.effective_binding(cfg, selected['account']) if selected['account'] else {}
-        ctx.update(nav='integrations', rows=rows, connectors=CONNECTORS, connection_fields=CONNECTION_FIELDS,
+        from .core.providers import ADAPTERS
+        from .core.twocaptcha import NATIVE_SOLVERS, SUPPORT, has_key, provider_enabled
+        provider_modes = cfg.get('twocaptcha', {}).get('providers', {})
+        ctx.update(twocaptcha_key_set=has_key(cfg),
+                   twocaptcha_support=[{'kind': k, 'name': ADAPTERS[k].label, 'detail': v,
+                       'native': k in NATIVE_SOLVERS, 'enabled': provider_enabled(cfg, k),
+                       'mode': str(provider_modes[k]).lower() if k in provider_modes else 'inherit'}
+                       for k, v in SUPPORT.items()],
+                   nav='integrations', rows=rows, connectors=CONNECTORS, connection_fields=CONNECTION_FIELDS,
                    selected=selected, connector=connector, fields=fields, login=login, binding=binding,
                    setup=self.request.query_params.get('setup') == '1',
                    connection=self.request.query_params.get('connection', ''),
@@ -125,7 +140,20 @@ class Integrations(Base):
             raise NotFoundError404()
         try:
             action = form.get('action')
-            if action == 'toggle':
+            if action == 'provider':
+                from .core.twocaptcha import SUPPORT
+                kind, mode = form.get('provider_kind'), form.get('mode')
+                if key != 'twocaptcha' or kind not in SUPPORT or kind == 'cdp':
+                    raise ValueError('Choose a provider that supports 2Captcha')
+                values = cfg.setdefault('twocaptcha', {}).setdefault('providers', {})
+                if mode == 'inherit':
+                    values.pop(kind, None)
+                elif mode in ('true', 'false'):
+                    values[kind] = mode == 'true'
+                else:
+                    raise ValueError('Choose Default, On or Off')
+                config.save(cfg)
+            elif action == 'toggle':
                 values = cfg.setdefault('integration_scopes', {}).setdefault(scope, {}).setdefault(key, {})
                 mode = form.get('mode')
                 if mode == 'inherit':
@@ -142,6 +170,10 @@ class Integrations(Base):
                     value = form.get(field, '').strip()
                     if not value:
                         options.pop(field, None)
+                        continue
+                    if key == 'twocaptcha':
+                        from .core.twocaptcha import parse_option
+                        options[field] = parse_option(field, value)
                         continue
                     if field.endswith('_ref') and not value.startswith('op://'):
                         raise ValueError('Use a 1Password reference, not a password or code')
@@ -166,12 +198,17 @@ class Integrations(Base):
                 origins = [config.origin(v.strip()) for v in form.get('login_origins', '').split(',') if v.strip()]
                 if start:
                     origins = list(dict.fromkeys([config.origin(start), *origins]))
-                target['login'] = {**({'start_url': start} if start else {}), **({'origins': origins} if origins else {})}
+                if key != 'twocaptcha':
+                    target['login'] = {**({'start_url': start} if start else {}), **({'origins': origins} if origins else {})}
                 config.save(cfg)
             elif action == 'connection':
                 connection = dict(cfg.get(key, {}))
                 for field, _ in CONNECTION_FIELDS[key]:
                     value = form.get(field, '').strip()
+                    if key == 'twocaptcha':
+                        from .core.twocaptcha import save_key
+                        save_key(connection, value, clear=form.get('clear_api_key') == 'true')
+                        continue
                     if field == 'password_ref' and value and not value.startswith('op://'):
                         raise ValueError('Use a 1Password reference for the mailbox password')
                     if field == 'port':

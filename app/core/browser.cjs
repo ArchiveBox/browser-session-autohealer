@@ -27,11 +27,9 @@ async function configure(page, settings, state) {
     const result=await apply('Browser.getWindowForTarget',{targetId:page.target()._targetId});
     if (result) await apply('Browser.setWindowBounds',{windowId:result.windowId,bounds:{width:settings.window.width,height:settings.window.height}});
   }
-  if (settings.viewport !== null) {
-    const viewport = settings.viewport || {width: 1440, height: 1000, deviceScaleFactor: 1};
-    await apply('Emulation.setDeviceMetricsOverride', {...viewport, mobile: settings.mobile || false,
-      ...(settings.screen ? {screenWidth:settings.screen.width,screenHeight:settings.screen.height}: {})});
-  }
+  const viewport = settings.viewport || {width: 1440, height: 1000, deviceScaleFactor: 1};
+  await apply('Emulation.setDeviceMetricsOverride', {...viewport, mobile: settings.mobile || false,
+    ...(settings.screen ? {screenWidth:settings.screen.width,screenHeight:settings.screen.height}: {})});
   if (settings.timezone) await apply('Emulation.setTimezoneOverride', {timezoneId: settings.timezone});
   if (settings.locale) await apply('Emulation.setLocaleOverride', {locale: settings.locale});
   if (settings.userAgent) await apply('Emulation.setUserAgentOverride', {userAgent: settings.userAgent, acceptLanguage: settings.acceptLanguage || settings.locale || 'en-US',
@@ -86,6 +84,10 @@ async function main() {
   try {
     const browserCDP = await browser.target().createCDPSession();
     if (input.action === 'alive') return {alive:true};
+    if (input.action === 'twocaptcha') {
+      if (input.browserContextId) throw Error('2Captcha cannot configure a borrowed browser context');
+      return await require('./twocaptcha.cjs').configure(browser, input.options, input.apiKey);
+    }
     if (input.action === 'create_context') {
       const {browserContextId} = await browserCDP.send('Target.createBrowserContext', {disposeOnDetach: false});
       return {cdp: browser.wsEndpoint(), browser_context_id: browserContextId};
@@ -143,7 +145,7 @@ async function main() {
         if (target.type() !== 'page' || target.browserContext() !== context || configured.has(target._targetId)) return;
         configured.add(target._targetId);
         const page = await target.page();
-        if (page) await configure(page, input.appliedSettings || input.settings, input.state);
+        if (page) await configure(page, input.settings, input.state);
       }
       function added(target) {
         const task = attach(target).catch(error => {
@@ -190,7 +192,7 @@ async function main() {
       if (!target) throw new Error('The check browser tab is no longer available');
       const page = await target.page();
       // Keep this connection alive: emulation and preload scripts belong to it.
-      if (!input.settingsManaged) await configure(page, input.appliedSettings || input.settings, input.state);
+      if (!input.settingsManaged) await configure(page, input.settings, input.state);
       const cdp = await page.createCDPSession();
       const live = path.join(input.work, 'live.jpg');
       let frames = 0, ending = false;

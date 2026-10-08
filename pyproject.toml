@@ -26,6 +26,7 @@ dependencies = [
   "python-dotenv>=1,<2",
   "maxminddb>=2,<4",
   "pycountry>=24.6",
+  "abxpkg>=1.13.41",
 ]
 
 [dependency-groups]

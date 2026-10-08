@@ -3,6 +3,21 @@ revision = 3
 requires-python = "==3.14.*"
 
 [[package]]
+name = "abxpkg"
+version = "1.13.41"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "platformdirs" },
+    { name = "pydantic" },
+    { name = "rich-click" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/65/35035f10930ea5a19df3255b8c434c974eb634534a8bd3c2a0c9d91b2844/abxpkg-1.13.41.tar.gz", hash = "sha256:bcbe6060740a8dd5c708b737781ccbfb10ad61197be3e460b2bcc26f9ae72b45", size = 245612, upload-time = "2026-10-08T04:37:39.978Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/8b/5411f6ce0dd956b90965875af7880279bde62a1e89d5349d558102cbc42c/abxpkg-1.13.41-py3-none-any.whl", hash = "sha256:af77e9901d545a33e806863b5247fb12ebccac6d8d71f907758c43aff4e88bdc", size = 256908, upload-time = "2026-10-08T04:37:37.85Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -77,6 +92,7 @@ name = "browser-session-autohealer"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "abxpkg" },
     { name = "browser-cookie3" },
     { name = "browser-harness" },
     { name = "cryptography" },
@@ -110,6 +126,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "abxpkg", specifier = ">=1.13.41" },
     { name = "browser-cookie3" },
     { name = "browser-harness", specifier = "==0.1.13" },
     { name = "cryptography" },
@@ -849,6 +866,15 @@ wheels = [
 ]
 
 [[package]]
+name = "platformdirs"
+version = "4.12.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/a1/d5f9002a70298c64a789779077d8dd90c10aa1f47fe40c86802df874f2a6/platformdirs-4.12.4.tar.gz", hash = "sha256:63743c02414e755de4e31b8f68125c1407495b86c5a006e203c01ff8b9924250", size = 60010, upload-time = "2026-10-07T23:30:32.426Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/ba/223e00b885e960edd5d4b4d178c88acce019bd5b83786093681b8c393492/platformdirs-4.12.4-py3-none-any.whl", hash = "sha256:78bfb9db2a8471ed7eebe3c3c932da413911042994e699b384fbb4493fa872d7", size = 32596, upload-time = "2026-10-07T23:30:30.825Z" },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1117,6 +1143,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
+]
+
+[[package]]
+name = "rich-click"
+version = "1.9.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/3e/5688fdd83aea416de336582a274f2bc8236b5c261b04c11e17bc262786ad/rich_click-1.9.9.tar.gz", hash = "sha256:324cba7513cd4187ee92b2eef21f071714e45be062458c8b157bd7e0c81103e3", size = 75866, upload-time = "2026-09-05T19:20:14.799Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/51/b2b91aec091e86bc961e5164f00207d89f133cc82b5ddad541d2132ea819/rich_click-1.9.9-py3-none-any.whl", hash = "sha256:365e7a9d0adb42e41ea832a0a12e02c44c079a26536dee688125eb9814f97274", size = 71910, upload-time = "2026-09-05T19:20:13.587Z" },
 ]
 
 [[package]]

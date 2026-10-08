@@ -12,8 +12,8 @@
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-aa1e55?style=flat-square)](#try-it)
 [![Checks and recovery](https://img.shields.io/badge/handles-checking_%2B_healing-334155?style=flat-square)](#from-blocked-to-unblocked)
-[![Seven browser adapters](https://img.shields.io/badge/integrations-6_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
-[![Seven browser adapters](https://img.shields.io/badge/browsers-7_providers-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
+[![Six browser adapters](https://img.shields.io/badge/integrations-6_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
+[![Six browser adapters](https://img.shields.io/badge/browsers-6_providers-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
 
 [Why it exists](#why-browser-sessions-need-maintenance) · [Screenshots](#ensure-browser-sessions-are-warm-and-ready-for-use-across-any-provider) · [Session history](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once) · [Get started](#try-it)
 
@@ -39,7 +39,6 @@
 <li><a href="https://kernel.sh"><img src="https://www.google.com/s2/favicons?domain=kernel.sh&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Kernel</a></li>
 <li><a href="https://anchorbrowser.io"><img src="https://www.google.com/s2/favicons?domain=anchorbrowser.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Anchor Browser</a></li>
 <li><a href="https://browserless.io"><img src="https://www.google.com/s2/favicons?domain=browserless.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserless</a></li>
-<li><a href="https://zenrows.com"><img src="https://www.google.com/s2/favicons?domain=zenrows.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> ZenRows</a></li>
 </ul>
 </td>
 </tr>
@@ -75,7 +74,7 @@ The same known-good session can be "checked out" by many jobs at once, and the l
 ![Real horizontal lineage: Local and Browserbase sessions fork from the same persona and return successful checkpoints to the canonical track](docs/images/lineage-providers.png)
 
 - **Standard Chrome browser profiles** can be used by ArchiveBox, Playwright, Puppeteer, Browserbase, browser-use, and tons of other tools
-- **API Adapters** allow the same sessions & fingerprints to be synced across local Chrome, Browserbase, Kernel, Anchor Browser, Browserless, ZenRows, and many other providers
+- **API Adapters** allow the same sessions & fingerprints to be synced across local Chrome, Browserbase, Kernel, Anchor Browser, Browserless, and many other providers
 - **Leader election** keeps the healthiest session across recent tasks ready to be re-used for upcoming tasks
 - **Powerful observability** keeps you aware of status & spend across all profiles, providers, tasks, and LLM sessions
 - **Point-in-time snapshots** allow you to instantly revert sessions to known good states, compare what changed, and track down issues easily

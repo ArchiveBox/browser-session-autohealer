@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import time
 from typing import ClassVar
@@ -38,7 +39,7 @@ class Browserless(CDPAdapter):
 
     label = "Browserless.io"
     description = "An isolated cloud browser with reconnectable CDP and portable site data."
-    config_help = "Set region (sfo, lon, ams), stealth, residential_proxies, proxy_country and session_timeout_ms. proxy_state and proxy_city require the Scale plan and use full names. Store BROWSERLESS_API_KEY in .env. The timeout must fit your plan. Native IndexedDB and OPFS transfer are not supported."
+    config_help = "Set region (sfo, lon, ams), stealth, residential_proxies, proxy_country and session_timeout_ms. proxy_state and proxy_city require the Scale plan and use full names. Store BROWSERLESS_API_KEY in .env. The timeout must fit your plan. 2Captcha uses Chromium instead of stealth; set twocaptcha_extension to a dashboard-uploaded extension name if your plan lacks the extension API. Native IndexedDB and OPFS transfer are not supported."
 
     def settings_support(self, config):
         support = super().settings_support(config)
@@ -54,9 +55,12 @@ class Browserless(CDPAdapter):
         return support
 
     def validate_config(self, config):
-        unknown = set(config) - {"region", "stealth", "residential_proxies", "session_timeout_ms", *self.network_fields}
+        unknown = set(config) - {"region", "stealth", "residential_proxies", "session_timeout_ms", 'twocaptcha_extension', *self.network_fields}
         if unknown:
             raise ValueError("Unsupported Browserless connection settings: " + ", ".join(sorted(unknown)))
+        if 'twocaptcha_extension' in config and (not isinstance(config['twocaptcha_extension'], str)
+                or not re.fullmatch(r'[a-zA-Z0-9_-]{1,99}', config['twocaptcha_extension'])):
+            raise ValueError('twocaptcha_extension must be the extension name from the Browserless dashboard')
         if config.get("region", "sfo") not in {"sfo", "lon", "ams"}:
             raise ValueError("Browserless region must be sfo, lon or ams")
         for key in ("stealth", "residential_proxies"):
@@ -113,7 +117,13 @@ class Browserless(CDPAdapter):
             for field in ('state', 'city'):
                 if config.get('proxy_' + field):
                     query['proxy' + field.title()] = config['proxy_' + field].replace(' ', '').lower()
+        from ..twocaptcha import enabled, uploaded_extension
+        if enabled(run):
+            name = config.get('twocaptcha_extension') or uploaded_extension('browserless', key, self.upload_twocaptcha)
+            query['launch'] = json.dumps({'extensions': [name]})
         route = "stealth" if config.get("stealth", True) else "chromium"
+        if enabled(run):
+            route = 'chromium'  # Browserless only loads extensions on this route.
         endpoint = f"wss://production-{config.get('region', 'sfo')}.browserless.io/{route}?{urlencode(query)}"
         try:
             with connect(endpoint, open_timeout=30, close_timeout=5) as ws:
@@ -150,6 +160,37 @@ class Browserless(CDPAdapter):
             status = getattr(getattr(error, "response", None), "status_code", None)
             detail = f" (HTTP {status})" if status else ""
             raise RuntimeError("Browserless could not create a reconnectable session" + detail) from None
+
+    def upload_twocaptcha(self, package):
+        name = 'autohealer-twocaptcha-' + package['sha256'][:16]
+        headers = {'Authorization': 'Bearer ' + os.environ['BROWSERLESS_API_KEY']}
+        try:
+            with httpx.Client(base_url='https://api.browserless.io', headers=headers, timeout=60) as client:
+                response = client.get('/extensions')
+                if response.status_code in (401, 403, 404):
+                    raise ValueError('Browserless extension uploads are unavailable on this account. Upload the 2Captcha ZIP in its dashboard and set twocaptcha_extension in Browser Providers.')
+                response.raise_for_status()
+                existing = next((e for e in response.json()['extensions'] if e['name'] == name), None)
+                if not existing:
+                    with package['archive'].open('rb') as file:
+                        response = client.post('/extension', data={'name': name, 'description': 'Autohealer 2Captcha'},
+                            files={'extension': ('twocaptcha.zip', file, 'application/zip')})
+                    response.raise_for_status()
+                deadline = time.monotonic() + 300
+                while True:
+                    response = client.get('/extensions')
+                    response.raise_for_status()
+                    extension = next((e for e in response.json()['extensions'] if e['name'] == name), {})
+                    status = extension.get('status')
+                    if status == 'active':
+                        return name
+                    if status != 'pending':
+                        raise ValueError('Browserless rejected the 2Captcha extension or did not retain its upload')
+                    if time.monotonic() >= deadline:
+                        raise ValueError('Browserless extension scanning has not completed; check the provider dashboard')
+                    time.sleep(5)
+        except (httpx.HTTPError, KeyError, TypeError):
+            raise ValueError('Browserless could not prepare the 2Captcha extension') from None
 
     def stop(self, run):
         from ..providers import browser_command

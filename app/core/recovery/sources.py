@@ -280,6 +280,9 @@ def resolve(config, field, since):
 
 
 def status(config, name):
+    if name == 'twocaptcha':
+        from ..twocaptcha import connection_status
+        return connection_status(config)
     cfg = config.get(name, {})
     try:
         if name == "onepassword":

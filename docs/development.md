@@ -111,8 +111,7 @@ the selected site data.
   working fork does not reopen hundreds of personal tabs.
 - Local Docker and Browserbase have been exercised with real accounts. Browserbase
   supports residential proxies and explicit Verified mode; unsupported plan
-  features fail visibly. Generic CDP, Kernel, Anchor Browser, Browserless and
-  ZenRows use the same check and state-transfer flow; see [provider results](providers.md).
+  features fail visibly. Generic CDP, Kernel, Anchor Browser and Browserless use the same check and state-transfer flow; see [provider results](providers.md).
 
 This prototype uses one OpenCode agent session per check. The application owns
 lifecycle and success-gating; browser-harness owns browser execution. A separate

@@ -67,6 +67,7 @@ def audit(directory, action, status, source=""):
 
 
 CONNECTORS = {
+    'twocaptcha': ('2Captcha', 'Automatic CAPTCHA solving in supported browsers', '✓'),
     'onepassword': ('1Password', 'Passwords & authenticator codes', '◈'),
     'imap': ('Email', 'Verification codes & sign-in links', '✉'),
     'googlevoice': ('Google Voice', 'Verification text messages', '☎'),
@@ -88,7 +89,11 @@ def scope_chain(account=None, check=None, persona=None):
 
 def effective_integration(cfg, key, chain, account=None):
     legacy = cfg.get('accounts', {}).get(str(account.id), {}) if account else {}
-    result = {}
+    if key == 'twocaptcha':
+        from ..twocaptcha import default_options
+        result = default_options(cfg)
+    else:
+        result = {}
     inherited_from = 'Default'
     for scope in chain:
         if account and scope == f'site:{account.id}':
@@ -119,6 +124,8 @@ def effective_binding(cfg, account, check=None):
     for scope in chain:
         binding.update(cfg.get('integration_scopes', {}).get(scope, {}).get('login', {}))
     for key in CONNECTORS:
+        if key == 'twocaptcha':
+            continue  # Browser setup, not a password or verification-message source.
         options, _ = effective_integration(cfg, key, chain, account)
         if not options['enabled']:
             fields = {p: f for p, f in fields.items() if f.get('source') != key}

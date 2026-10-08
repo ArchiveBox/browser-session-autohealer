@@ -212,6 +212,8 @@ def execute(run):
         launched = True
         run.status = "running"
         run.update(fields=["runtime", "status"])
+        from ..twocaptcha import configure_browser
+        configure_browser(run)
         network.observe(run)
         execution = services.start_check(run.id, plan)
         if run.base.coverage.get("cookies") != "native-only":

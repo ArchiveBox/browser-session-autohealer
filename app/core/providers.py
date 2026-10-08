@@ -51,9 +51,6 @@ def host_browser_invocation(action, run, **payload):
         "browserContextId": run.runtime.get("browser_context_id"),
         "settingsManaged": bool(run.runtime.get('session_watch_pid')),
         "settings": run.runtime.get("settings", run.persona.config),
-        "appliedSettings": adapter(run.provider, kind=run.runtime.get("provider_kind")).driver_settings(
-            run.runtime.get("settings", run.persona.config)
-        ),
         **payload,
     }
     return command, document, env, work
@@ -70,10 +67,13 @@ def browser_command(action, run, **payload):
         env=env,
         timeout=90,
     )
-    (work / f"{action}.stderr.log").write_text(result.stderr)
+    diagnostic = result.stderr
+    if payload.get('apiKey'):
+        diagnostic = diagnostic.replace(payload['apiKey'], '[redacted]')
+    (work / f"{action}.stderr.log").write_text(diagnostic)
     if result.returncode:
         # Do not echo subprocess input, CDP bearer URLs, or cookie values.
-        error = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "no diagnostic"
+        error = diagnostic.strip().splitlines()[-1] if diagnostic.strip() else "no diagnostic"
         for key, value in os.environ.items():
             if key.endswith(("_API_KEY", "_TOKEN")) and value:
                 error = error.replace(value, "[redacted]")
@@ -140,15 +140,12 @@ class CDPAdapter:
 
     def connection(self, run):
         return {'cdp_url': run.runtime['cdp'],
+                'twocaptcha': run.runtime.get('twocaptcha_status', {'status': 'disabled'}),
                 'browser_context_id': run.runtime.get('browser_context_id'),
                 'targets': run.runtime.get('tabs', []), 'capabilities': self.capabilities}
 
     def native_path(self, run):
         return None
-
-    def driver_settings(self, settings):
-        """Apply supported settings while retaining the full canonical document."""
-        return settings
 
     def browser_invocation(self, action, run, **payload):
         return host_browser_invocation(action, run, **payload)
@@ -324,6 +321,8 @@ class Local(CDPAdapter):
             path = profile / "Default" / name
             if path.exists():
                 shutil.move(str(path), saved_tabs / name)
+        from .twocaptcha import prepare_local
+        prepare_local(run, work)
         if provider_config(run).get("runtime") == "docker":
             name = f"account-checker-run-{run.id}"
             image = provider_config(run).get("image", "archivebox/abx-dl:1.12.278")
@@ -494,10 +493,20 @@ class Browserbase(CDPAdapter):
         # sessions retain the persona's CDP emulation on the default Linux host.
         if verified:
             browser_settings["os"] = "mac" if run.runtime["settings"].get("platform") == "MacIntel" else "linux"
+        from .twocaptcha import enabled, uploaded_extension
+        extensions = {}
+        if enabled(run):
+            def upload(package):
+                with package['archive'].open('rb') as file:
+                    return self.api('POST', '/extensions', files={'file': ('twocaptcha.zip', file, 'application/zip')})['id']
+            extensions['extensionId'] = uploaded_extension('browserbase',
+                f'{project}:{os.environ.get("BROWSERBASE_API_KEY", "")}', upload)
+            browser_settings['solveCaptchas'] = False
         result = self.api(
             "POST",
             "/sessions",
             json={
+                **extensions,
                 "projectId": project,
                 "browserSettings": browser_settings,
                 "proxies": ([{'type': 'browserbase', 'geolocation': {k.removeprefix('proxy_'): provider_config(run)[k]
@@ -541,11 +550,10 @@ from .provider_backends.anchor import Anchor
 from .provider_backends.browserless import Browserless
 from .provider_backends.cdp import GenericCDP
 from .provider_backends.kernel import Kernel
-from .provider_backends.zenrows import ZenRows
 
 ADAPTERS = {
     "local": Local, "browserbase": Browserbase, "cdp": GenericCDP,
-    "kernel": Kernel, "anchor": Anchor, "browserless": Browserless, "zenrows": ZenRows,
+    "kernel": Kernel, "anchor": Anchor, "browserless": Browserless,
 }
 
 

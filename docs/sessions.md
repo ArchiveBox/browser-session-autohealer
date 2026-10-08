@@ -162,7 +162,6 @@ CDP URLs are bearer capabilities: do not put them in logs or public frontend cod
 | Generic CDP | Yes; isolated context, shared browser stays alive |
 | Browserbase / Kernel / Anchor / Browserless | Direct provider endpoint |
 | Local Docker | Rejected: current image only exposes CDP inside its container |
-| ZenRows | Rejected: current adapter requires a relay |
 
 The existing state-exchange `/api/checkouts` endpoints remain available for apps
 that own browser launch themselves. They can report an observed IP with
@@ -218,7 +217,6 @@ Exact IP requests can verify an address but cannot reserve arbitrary proxy addre
 | Anchor | Country, region; city with a region |
 | Kernel | Country/state/city through a reusable residential proxy; account plan permitting |
 | Local / Generic CDP | Existing browser network; requested locations are measured, not changed |
-| ZenRows | Country routing for managed tasks; direct session handoff remains unsupported |
 
 If an account explicitly rejects finer routing, the adapter uses its supported
 broader/default route and records `location_notes`. Required locations still have
@@ -235,7 +233,6 @@ sessions. Region choices do not promise the same IP across sessions.
 | Browserless | [Country, state, city](https://docs.browserless.io/baas/bot-detection/proxies); finer regions require the provider's plan support; sticky within a session |
 | Anchor | [Country, region, city](https://docs.anchorbrowser.io/api-reference/sessions/start-browser-session); city requires region |
 | Kernel | Existing saved proxy, or automatically managed country/state/city routing when the plan permits |
-| ZenRows | Country or broad proxy region for scheduled tasks |
 | Local / Generic CDP | Network managed by host/upstream browser |
 
 ## Live acceptance

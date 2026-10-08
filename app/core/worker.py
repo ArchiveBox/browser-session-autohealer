@@ -100,6 +100,8 @@ def execute(run):
         from .network import observe as observe_ip
         run.status = "running"
         run.update(fields=["runtime", "status"])
+        from .twocaptcha import configure_browser
+        configure_browser(run)
         observe_ip(run)
         # Native-only imports carry no semantic cookie export; keep their native cookies.
         if run.base.coverage.get("cookies") != "native-only":

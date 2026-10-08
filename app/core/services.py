@@ -180,6 +180,8 @@ def checkout(
                 payload={"next_due": check.next_due.isoformat()},
             )
     runtime_fix = {}
+    from .twocaptcha import for_checkout
+    captcha_options = for_checkout(persona, provider, checks, scope)
     if len(checks) == 1 and checks[0].mode == "fix":
         from .tasks import fix_binding
         runtime_fix = {"recovery": {"account_id": checks[0].account.id, "check_id": checks[0].id,
@@ -194,6 +196,7 @@ def checkout(
         status="running" if external else "queued",
         started_at=now() if external else None,
         runtime={
+            'twocaptcha': captcha_options,
             'base_leader_event_id': base_event.id if base_event else None,
             'base_requested': bool(base_digest),
             **runtime_fix,

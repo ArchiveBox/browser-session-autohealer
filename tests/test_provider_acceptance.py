@@ -15,7 +15,7 @@ from app.core import storage
 from app.core.images import screenshot_format
 from app.core.models import Check, CheckRun, Leader, Run
 
-KINDS = ("cdp", "browserless", "kernel", "anchor", "zenrows")
+KINDS = ("cdp", "browserless", "kernel", "anchor")
 SITES = ("news.ycombinator.com", "linkedin.com", "x.com")
 
 

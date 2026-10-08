@@ -44,14 +44,7 @@
       "name": "Browserless.io",
       "status": "partially_verified",
       "implemented": true,
-      "notes": "Hacker News and X passed. LinkedIn access was confirmed but its session was discarded for a visible cookie banner and unconfirmed termination. Shutdown confirmation was subsequently fixed and verified with isolated real browsers. Fresh reconnectable cloud sessions retain the same browser between CDP clients; stop closes the browser and confirms its endpoint is gone. Plan lifetime limits remain enforced. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-browserless-zenrows.md."
-    },
-    {
-      "id": "zenrows",
-      "name": "ZenRows",
-      "status": "partially_verified",
-      "implemented": true,
-      "notes": "Hacker News and X passed. LinkedIn requires email verification; recovery stopped without an email-code integration. One connection keeper preserves each checkout's fresh cloud browser across local CDP clients; stop confirms keeper exit. Provider-managed fingerprint fields omit unsupported overrides; canonical settings and unsupported origin fields remain saved. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-browserless-zenrows.md."
+      "notes": "Hacker News and X passed. LinkedIn access was confirmed but its session was discarded for a visible cookie banner and unconfirmed termination. Shutdown confirmation was subsequently fixed and verified with isolated real browsers. Fresh reconnectable cloud sessions retain the same browser between CDP clients; stop closes the browser and confirms its endpoint is gone. Plan lifetime limits remain enforced. Native profile, IndexedDB and OPFS transfer are unsupported. See docs/providers-browserless.md."
     }
   ]
 }
