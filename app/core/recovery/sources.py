@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from .config import Unavailable, local_test_password, origin
+from .config import Pending, Unavailable, local_test_password, origin
 
 
 def private_command(command, *, stdin=None):
@@ -256,7 +256,7 @@ def extract(messages, field):
             if (value, identity) not in matches:
                 matches.append((value, identity))
     if not matches:
-        raise Unavailable("No fresh matching verification message yet")
+        raise Pending("No fresh matching verification message yet")
     if len(matches) != 1:
         raise Unavailable("More than one verification code or link matches; human review is needed")
     return matches[0]
@@ -264,6 +264,14 @@ def extract(messages, field):
 
 def resolve(config, field, since):
     source = field.get("source")
+    if source == 'browser_message':
+        return field['value'], field['message_id']
+    if source == 'signup':
+        from ..onboarding import resolve as resolve_signup
+        return resolve_signup(field)
+    if source == 'cloaked':
+        from ..cloaked import messages
+        return extract(messages(config.get('cloaked', {}), field, since), field)
     cfg = config.get(source, {})
     if source == "onepassword":
         return onepassword(cfg, field)
@@ -285,7 +293,10 @@ def status(config, name):
         return connection_status(config)
     cfg = config.get(name, {})
     try:
-        if name == "onepassword":
+        if name == 'cloaked':
+            from ..cloaked import call
+            call(config, 'status')
+        elif name == "onepassword":
             account_args = ["--account", cfg["account"]] if cfg.get("account") else []
             if not cfg.get("vault"):
                 return "Choose a 1Password vault"
@@ -310,6 +321,7 @@ def status(config, name):
         return "Connected"
     except Exception:  # noqa: BLE001 - provider errors may contain private data
         return {
+            'cloaked': 'Cloaked browser unavailable; connect a dedicated browser signed into my.cloaked.com',
             "onepassword": "Unlock/sign in to 1Password CLI",
             "imessage": "Messages access unavailable; check Full Disk Access",
             "googlevoice": "Google Voice browser unavailable",

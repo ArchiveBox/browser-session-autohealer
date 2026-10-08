@@ -7,7 +7,7 @@ from plain.postgres import transaction
 
 from .core import services, storage
 from .core.agent_sessions import sessions_for
-from .core.models import Check, Persona, Run
+from .core.models import Check, Persona, PersonaSetup, Run
 from .core.providers import adapter, browser_command
 from .views import Base
 
@@ -27,10 +27,19 @@ class OpenBrowser(Base):
         existing = next((r for r in existing if [p["id"] for p in r.plan] == [check.id]), None)
         if existing:
             return RedirectResponse(f"/runs/{existing.id}/browser", status_code=303)
+        setup = PersonaSetup.query.filter(persona=persona).first() if check.pattern.startswith('signup:') else None
+        if setup and setup.run and setup.run.status in {'queued', 'starting', 'running', 'finishing'}:
+            return JsonResponse({'error':'Wait for the active setup session'}, status_code=409)
         run = services.checkout(persona.id, provider.id, check.account.site.domain,
-            self.user.email, check_ids=[check.id])
+            self.user.email, check_ids=[check.id],
+            base_digest=(setup.run.tip or setup.run.base.digest) if setup and setup.run else None)
         run.runtime["interactive"] = True
+        if setup and provider.kind == 'local' and provider.config.get('runtime') != 'docker':
+            run.runtime['provider_config'] = {**run.runtime['provider_config'], 'headless':False}
         run.update(fields=["runtime"])
+        if setup:
+            setup.run, setup.status = run, 'running'
+            setup.update(fields=['run', 'status'])
         return RedirectResponse(f"/runs/{run.id}/browser", status_code=303)
 
 
@@ -54,6 +63,8 @@ class BrowserView(Base):
         data = self.request.json_data
         work = storage.private_dir(storage.data_root() / "runs" / str(run.id))
         if data.get("operation") == "close":
+            if run.runtime.get('recovery', {}).get('binding', {}).get('signup') and not run.runtime.get('interactive_ready'):
+                return JsonResponse({'error':'Wait for the agent to request your help'}, status_code=409)
             (work / "close-requested").touch()
             return JsonResponse({"ok": True})
         if not run.runtime.get("interactive_ready") or (work / "close-requested").exists():

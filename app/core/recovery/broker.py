@@ -14,11 +14,15 @@ class Broker:
         self.since = since or datetime.now(UTC)
         self.placeholders = {}
 
-    def request(self, purpose):
-        field = self.binding.get("fields", {}).get(purpose)
+    def request(self, purpose, *, field=None):
+        field = field if field is not None else self.binding.get("fields", {}).get(purpose)
         if not field:
             raise Unavailable("No credential source is configured for this purpose")
-        if purpose not in {"username", "password", "otp", "email_code", "sms_code", "email_link"}:
+        signup_purposes = set()
+        if self.binding.get('signup'):
+            from ..onboarding import AUTOFILL_PURPOSES
+            signup_purposes = set(AUTOFILL_PURPOSES)
+        if purpose not in {"username", "password", "otp", "email_code", "sms_code", "email_link"} | signup_purposes:
             raise Unavailable("Unsupported credential purpose")
         placeholder = "{{secret:" + secrets.token_hex(16) + "}}"
         self.placeholders[placeholder] = (field, time.monotonic() + 120, purpose)
@@ -41,6 +45,8 @@ class Broker:
         if origin(destination) not in self.binding["origins"]:
             raise Unavailable("Credential destination is outside the approved login origins")
         field, _, purpose = self.placeholders[placeholder]
+        if field.get('origins') and origin(destination) not in field['origins']:
+            raise Unavailable('Credential is restricted to its identity provider')
         value, message_id = sources.resolve(self.config, field, self.since)
         if purpose in {"otp", "email_code", "sms_code"} and not value.isalnum():
             raise Unavailable("Provider did not return a verification code")

@@ -16,6 +16,14 @@ from plain.exceptions import ValidationError
 from . import storage
 
 
+class ProviderAPIError(RuntimeError):
+    """Keep a safe status for recovery UI without exposing upstream diagnostics."""
+
+    def __init__(self, message, public_message):
+        super().__init__(message)
+        self.public_message = public_message
+
+
 def provider_config(run):
     return run.runtime.get("provider_config", run.provider.config)
 
@@ -471,7 +479,13 @@ class Browserbase(CDPAdapter):
                 detail = str(response.json().get("message", response.json().get("error", "")))[:300]
             except ValueError:
                 detail = ""
-            raise RuntimeError(f"Browserbase returned HTTP {response.status_code}: " + detail.replace(key, "[redacted]"))
+            public_message = f"Browserbase returned HTTP {response.status_code}"
+            if response.status_code == 403 and detail == "Verified mode is only available on the Enterprise plan":
+                public_message += ": " + detail
+            raise ProviderAPIError(
+                f"Browserbase returned HTTP {response.status_code}: " + detail.replace(key, "[redacted]"),
+                public_message,
+            )
         return response.json()
 
     def launch(self, run):

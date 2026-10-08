@@ -12,6 +12,8 @@ from .views import Base
 
 CONNECTORS = config.CONNECTORS
 OPTIONS = {
+    'cloaked': [('senders', 'Allowed verification senders'), ('subject', 'Subject contains'),
+                ('pattern', 'Code pattern')],
     'twocaptcha': [('retry_count', 'Retries on solver error'), ('retry_delay', 'Retry delay (seconds)'),
                    ('auto_submit', 'Submit forms after solving')],
     'onepassword': [('username_ref', 'Username reference'), ('password_ref', 'Password reference'),
@@ -22,6 +24,7 @@ OPTIONS = {
     'imessage': [('senders', 'Allowed phone numbers'), ('chat_id', 'Conversation ID'), ('pattern', 'Code pattern')],
 }
 CONNECTION_FIELDS = {
+    'cloaked': [('cdp_url', 'Dedicated signed-in Cloaked browser CDP URL')],
     'twocaptcha': [('api_key', '2Captcha API key')],
     'onepassword': [('vault', 'Vault name or ID'), ('account', '1Password account')],
     'imap': [('host', 'IMAP server'), ('port', 'Port'), ('username', 'Mailbox login'),
@@ -140,7 +143,10 @@ class Integrations(Base):
             raise NotFoundError404()
         try:
             action = form.get('action')
-            if action == 'provider':
+            if action == 'open_cloaked' and key == 'cloaked':
+                from .core.cloaked import open_browser
+                open_browser()
+            elif action == 'provider':
                 from .core.twocaptcha import SUPPORT
                 kind, mode = form.get('provider_kind'), form.get('mode')
                 if key != 'twocaptcha' or kind not in SUPPORT or kind == 'cdp':
@@ -222,6 +228,9 @@ class Integrations(Base):
                     connection.pop('local_test')
                 if key == 'googlevoice':
                     connection['enabled'] = bool(connection.get('command'))
+                if key == 'cloaked':
+                    from .core.cloaked import validate_connection
+                    validate_connection(connection)
                 cfg[key] = connection
                 config.save(cfg)
                 # A changed connection is untested until explicitly tested again.

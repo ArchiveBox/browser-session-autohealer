@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .. import inference, network, services, storage
 from ..models import Check, Run
-from ..providers import adapter, browser_command, watch_browser
+from ..providers import ProviderAPIError, adapter, browser_command, watch_browser
 from .config import Unavailable
 
 
@@ -22,6 +22,16 @@ def agent():
         "steps": 18,
         "permission": {"*": "deny", "private_login_*": "allow", "browser_harness_*": "allow"},
     }
+
+
+def signup_agent():
+    result = agent()
+    skill = result['prompt'].split('Browser-harness skill (task scope above takes precedence):', 1)[1]
+    result.update(description='Set up researcher accounts with private autofill and verification',
+        prompt=Path(__file__).parents[1].joinpath('prompts/signup.txt').read_text()
+            + '\nBrowser-harness skill (task scope above takes precedence):' + skill,
+        steps=60)
+    return result
 
 
 def queue(account, provider_id, actor, *, base_digest=None, check_id=None):
@@ -39,10 +49,11 @@ def run_agent(run, target, directory):
     inference.ensure_server()
     identifier = run.runtime['recovery'].get('task', {}).get('id', 'recovery')
     binding = run.runtime["recovery"]["binding"]
+    signup = binding.get('signup')
     context = {
         "active": True,
         "nonce": secrets.token_hex(24),
-        "expires_at": time.time() + 600,
+        "expires_at": time.time() + (1200 if signup else 600),
         "binding": binding,
         "cdp": run.runtime["cdp"],
         "container": run.runtime.get("container"),
@@ -66,6 +77,11 @@ def run_agent(run, target, directory):
     work = storage.private_dir(directory / "recovery-agent")
     (work / ".ignore").write_text("*\n")
     with inference.client(work) as api:
+        if signup:
+            response = api.get('/agent')
+            response.raise_for_status()
+            if not any(item['name'] == 'signup' for item in response.json()):
+                raise Unavailable('Restart the app-owned OpenCode server to load the signup agent')
         response = api.post(
             "/mcp",
             json={
@@ -83,7 +99,7 @@ def run_agent(run, target, directory):
                         str(directory),
                     ],
                     "enabled": True,
-                    "timeout": 60000,
+                    "timeout": 250000 if signup else 60000,
                 },
             },
         )
@@ -114,11 +130,15 @@ def run_agent(run, target, directory):
         response.raise_for_status()
         if response.json().get("browser_harness", {}).get("status") != "connected":
             raise Unavailable("OpenCode could not connect to browser-harness")
-        response = api.post(
-            "/session", json={"title": f"Restore login · {run.scope} · browser {run.id}"}
-        )
-        response.raise_for_status()
-        session_id = response.json()["id"]
+        saved_session = directory / f"agent-{identifier}.json"
+        if run.runtime.get('interaction_ended_at') and saved_session.exists():
+            session_id = json.loads(saved_session.read_text())['session_id']
+        else:
+            response = api.post(
+                "/session", json={"title": f"{'Set up account' if signup else 'Restore login'} · {run.scope} · browser {run.id}"}
+            )
+            response.raise_for_status()
+            session_id = response.json()["id"]
         metadata = {
             "session_id": session_id,
             "directory": str(work),
@@ -130,7 +150,7 @@ def run_agent(run, target, directory):
             response = api.post(
                 f"/session/{session_id}/message",
                 json={
-                    "agent": "recovery",
+                    "agent": "signup" if signup else "recovery",
                     "model": {"providerID": "openai", "modelID": model.split("/", 1)[1]},
                     "parts": [
                         {
@@ -142,10 +162,14 @@ def run_agent(run, target, directory):
                                     "site": run.scope,
                                     "task_id": identifier,
                                     "configured_purposes": list(binding.get("fields", {})),
+                                    "authentication": binding.get('authentication', 'password'),
                                     "approved_origins": binding["origins"],
                                     "start_url": binding["start_url"],
                                     "target_id": target["targetId"],
                                     "username": run.plan[0].get("username", "") if run.plan else "",
+                                    **({'setup': signup} if signup else {}),
+                                    **({'resume': 'The user completed the requested browser step and clicked Continue account setup. Inspect the current page and continue from it; do not restart signup.'}
+                                       if run.runtime.get('interaction_ended_at') else {}),
                                     "screenshot_path": "/run/agent-workspace/recovery.png"
                                     if run.runtime.get("container")
                                     else str(directory / "agent-workspace/recovery.png"),
@@ -154,6 +178,7 @@ def run_agent(run, target, directory):
                         }
                     ],
                 },
+                timeout=1200 if signup else 300,
             )
             response.raise_for_status()
             payload = response.json()
@@ -204,6 +229,7 @@ def execute(run):
     launched, exported, stopped, outcome = False, None, False, None
     plan = next(p for p in run.plan if p['mode'] == 'fix')
     execution = None
+    signup = run.runtime['recovery']['binding'].get('signup')
     try:
         from ..site_scope import select_state
 
@@ -222,13 +248,41 @@ def execute(run):
         (work / "recovery-context.json").write_text(json.dumps({"active": False}))
         storage.private_dir(work / "agent-workspace")
         services.restore_agent_helpers(plan['id'], work / 'agent-workspace')
-        with watch_browser(run, target, state, capture=False):
+        with watch_browser(run, target, state, capture=bool(run.runtime.get('interactive'))):
             outcome = run_agent(run, target, work)
+            while signup and run.runtime.get('interactive') and outcome['status'] == 'needs_human':
+                from ..models import PersonaSetup
+
+                deadline = run.started_at.timestamp() + min(1500,
+                    provider.session_lifetime(run.runtime['provider_config']) - 30)
+                run.runtime.update(tabs=[{**target, 'name':plan['name'], 'check_id':plan['id']}],
+                    interactive_ready=True, human_reason=outcome.get('reason', ''), human_until=deadline)
+                run.update(fields=['runtime'])
+                setup = PersonaSetup.query.get(id=signup['setup_id'])
+                setup.status = 'needs_human'
+                setup.update(fields=['status'])
+                while not (work / 'close-requested').exists() and time.time() < deadline:
+                    time.sleep(1)
+                run.runtime.update(interactive_ready=False, interaction_ended_at=services.now().isoformat())
+                run.update(fields=['runtime'])
+                if not (work / 'close-requested').exists():
+                    outcome['reason'] = 'Live signup session expired before Continue account setup was clicked; resume from the saved browser state.'
+                    break
+                (work / 'close-requested').unlink()
+                setup.status = 'running'
+                setup.update(fields=['status'])
+                outcome = run_agent(run, target, work)
         from ..agent_sessions import read_json
 
         programs = [read_json(p) for p in sorted((work / 'agent-workspace').glob('*.json'), key=lambda p: p.stat().st_mtime)]
         programs = [p for p in programs if p.get('step')]
         metadata = read_json(work / f"agent-{plan['id']}.json")
+        if signup and outcome['status'] == 'submitted':
+            from ..models import PersonaSetup
+            from ..onboarding import read
+            account = read(PersonaSetup.query.get(id=signup['setup_id']))['accounts'][signup['site']]
+            if not account.get('credentials_saved'):
+                services.record_issue(run.id, 'Save the new account credentials before completing setup')
         completed = outcome['status'] == 'submitted' and not Run.query.get(id=run.id).issues
         services.observe(run.id, plan, {'passed': completed, 'screenshot': 'recovery.png',
             'programs': programs, 'reason': outcome.get('reason', '')},
@@ -245,6 +299,8 @@ def execute(run):
             verify_cookie_preservation(run, state, exported)
         else:
             services.record_issue(run.id, outcome.get("reason", "Login needs human help")[:400])
+            if signup:
+                exported = browser_command('export', run, state=state)
     except Exception as error:  # noqa: BLE001 - never log upstream errors or secret-bearing browser diagnostics
         import traceback
 
@@ -265,10 +321,16 @@ def execute(run):
         )
         services.record_issue(
             run.id,
+            error.public_message if isinstance(error, ProviderAPIError) else
             "Login recovery stopped; inspect the sanitized agent activity and connection status",
         )
         if execution:
             services.fail_check(execution, plan, 'Fix stopped before completion')
+        if signup and launched and exported is None:
+            try:
+                exported = browser_command('export', run, state=state)
+            except Exception:  # noqa: BLE001 - preserve the primary error without leaking browser state
+                services.record_issue(run.id, 'Could not preserve the interrupted signup browser')
     finally:
         (work / "recovery-context.json").write_text(json.dumps({"active": False}))
         (work / "harness-context.json").write_text(json.dumps({"active": False}))
@@ -281,8 +343,9 @@ def execute(run):
                 services.record_issue(run.id, "The login browser did not stop cleanly")
         run = Run.query.get(id=run.id)
         run.status, run.finished_at = "finishing", services.now()
-        run.update(fields=["status", "finished_at"])
-    if exported and stopped and not run.issues:
+        run.runtime['interactive_ready'] = False
+        run.update(fields=["status", "finished_at", 'runtime'])
+    if exported and stopped and (signup or not run.issues):
         try:
             services.checkpoint_run(
                 run.id, exported, native=provider.native_path(run), coverage=run.base.coverage
@@ -291,6 +354,10 @@ def execute(run):
             services.record_issue(run.id, "Could not save the restored browser profile")
             exported = None
     result = services.finish(run.id, success=bool(exported and stopped and not run.issues), export_complete=bool(exported and stopped))
+    if signup:
+        from ..onboarding import finished
+        finished(result)
+        return result
     from ..tasks import dispatch
 
     dispatch(result)

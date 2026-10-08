@@ -2,13 +2,14 @@ from plain.runtime import setup
 
 setup()
 
+import os
 from pathlib import Path
 
 import httpx
 import pytest
 from plain.runtime import settings
 
-ORIGIN = "http://127.0.0.1:8421"
+ORIGIN = os.environ.get('ACCOUNT_CHECKER_TEST_ORIGIN', 'http://127.0.0.1:8421')
 
 @pytest.fixture
 def app_session():
@@ -23,5 +24,4 @@ def app_session():
         )
         assert response.status_code == 302
         yield client
-
 

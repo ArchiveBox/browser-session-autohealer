@@ -48,13 +48,16 @@ def verify_cookie_preservation(run, before, after):
     if run.scope == "*":
         return
     current = {storage.cookie_key(c): c for c in after.get("cookies", [])}
+    signup = run.runtime.get('recovery', {}).get('binding', {}).get('signup')
+    allowed = [run.scope]
+    if signup:
+        from urllib.parse import urlsplit
+        allowed += [urlsplit(url).hostname for url in run.runtime['recovery']['binding']['origins']]
     changed = []
     for cookie in before.get("cookies", []):
         domain = cookie["domain"].lstrip(".")
         if (
-            run.scope == domain
-            or run.scope.endswith("." + domain)
-            or domain.endswith("." + run.scope)
+            any(site == domain or site.endswith('.' + domain) or domain.endswith('.' + site) for site in allowed)
         ):
             continue
         if 0 < cookie.get("expires", -1) <= services.now().timestamp():

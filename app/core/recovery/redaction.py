@@ -3,6 +3,7 @@
 import html
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, quote_plus, urlsplit
 
@@ -48,8 +49,15 @@ def variants(values):
 
 
 def redact(text, values):
+    token_facts = set(variants({key:value for key,value in values.items() if key.startswith('fact:')}))
+    token_facts.difference_update(variants({key:value for key,value in values.items() if not key.startswith('fact:')}))
     for value in variants(values):
-        text = text.replace(value, "[secret redacted]")
+        if len(value) <= 4 and value in token_facts:
+            # Short autofill facts can also be digits in DOM IDs and XPath
+            # indices. Mask standalone values without corrupting those handles.
+            text = re.sub(r'(?<![\w./\[\]-])' + re.escape(value) + r'(?![\w./\[\]-])', '[secret redacted]', text)
+        else:
+            text = text.replace(value, "[secret redacted]")
     return text
 
 

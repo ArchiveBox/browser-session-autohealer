@@ -20,7 +20,7 @@ setup()
 
 from app.core.recovery import redaction
 from app.core.recovery.broker import Broker
-from app.core.recovery.config import Unavailable, audit, load
+from app.core.recovery.config import Pending, Unavailable, audit, load
 
 
 def stagehand(context, directory, action, **payload):
@@ -68,6 +68,8 @@ def stagehand(context, directory, action, **payload):
     ]
     if result.returncode or not lines:
         raise Unavailable("Stagehand browser action is unavailable")
+    if action == 'capture':
+        return json.loads(lines[-1])
     return json.loads(redaction.redact(lines[-1], redaction.read(directory)))
 
 
@@ -90,6 +92,9 @@ def server(directory):
                 log.write(json.dumps({"tool": action, "result": result}) + "\n")
             audit(directory, action, "ok")
             return result
+        except Pending as exc:
+            audit(directory, action, 'pending')
+            return {'status': 'pending', 'reason': str(exc)}
         except Unavailable as exc:
             audit(directory, action, "blocked")
             return {"status": "blocked", "reason": str(exc)}
@@ -104,6 +109,111 @@ def server(directory):
     def request_placeholder(purpose: str) -> dict:
         """Get a single-use secret placeholder for username/password/otp/email_code/sms_code/email_link. No raw value is returned."""
         return safe("request_placeholder", lambda: broker.request(purpose))
+
+    if context['binding'].get('signup'):
+        signup = context['binding']['signup']
+
+        @mcp.tool()
+        def select_signup_option(selector: str, placeholder: str) -> dict:
+            """Select a private autofill fact in an ALREADY OPEN custom dropdown. Supply an observed CSS selector for its role=option elements. The broker matches the value and clicks locally, without exposing it to inference. Use for birth month/country; never passwords or codes."""
+            def select():
+                from app.core.onboarding import AUTOFILL_PURPOSES
+                if broker.purpose(placeholder) not in AUTOFILL_PURPOSES or len(selector) > 500:
+                    raise Unavailable('Choose a basic autofill fact and an observed option selector')
+                destination = stagehand(context, directory, 'origin').get('origin')
+                if not destination:
+                    raise Unavailable('Browser is outside approved signup origins')
+                value = broker.consume(placeholder, destination)
+                redaction.remember(directory, {'fact:' + placeholder:value})
+                return stagehand(context, directory, 'select', selector=selector, value=value)
+            return safe('select_signup_option', select)
+
+        @mcp.tool()
+        def use_signup_tab(target_id: str) -> dict:
+            """Select an observed signup/OAuth popup in this persona browser for subsequent autofill; only approved origins are accepted."""
+            def select():
+                candidate = {**context, 'target_id': target_id}
+                if not stagehand(candidate, directory, 'origin').get('origin'):
+                    raise Unavailable('The selected tab is outside approved signup origins')
+                context['target_id'] = target_id
+                return {'status': 'selected'}
+            return safe('use_signup_tab', select)
+
+        @mcp.tool()
+        def prepare_signup() -> dict:
+            """Provision the requested contacts once and list available autofill facts. No values are returned."""
+            def prepare():
+                from app.core.models import PersonaSetup
+                from app.core.onboarding import prepare, read
+                result = prepare(signup['setup_id'], signup['site'])
+                data = read(PersonaSetup.query.get(id=signup['setup_id']))
+                values = {**data['facts'], **{k:v for k,v in data['accounts'][signup['site']].items() if isinstance(v,str)},
+                          **{k:v for k,v in data.get('cloaked', {}).items() if isinstance(v,str)}}
+                redaction.remember(directory, values)
+                return result
+            return safe('prepare_signup', prepare)
+
+        @mcp.tool()
+        def capture_security(purpose: str, selector: str) -> dict:
+            """Store the manual TOTP key or recovery-code list locally, selecting one observed DOM element. purpose is totp or recovery_codes. Never returns its value."""
+            def capture():
+                from urllib.parse import urlsplit
+
+                from app.core.onboarding import SITES, save_security
+                if purpose not in {'totp', 'recovery_codes'} or len(selector) > 500:
+                    raise Unavailable('Choose an authenticator key or recovery-code element')
+                host = urlsplit(stagehand(context, directory, 'origin').get('origin', '')).hostname or ''
+                domain = SITES[signup['site']]['domain']
+                if host != domain and not host.endswith('.' + domain):
+                    raise Unavailable('Capture security details only on the account being set up')
+                result = stagehand(context, directory, 'capture', selector=selector)
+                if result.get('status') != 'captured':
+                    raise Unavailable('Could not read the selected security field')
+                value = result['private_value']
+                save_security(signup['setup_id'], signup['site'], purpose, value)
+                redaction.remember(directory, {purpose: value})
+                return {'status': 'saved', 'purpose': purpose}
+            return safe('capture_security', capture)
+
+        @mcp.tool()
+        def save_account(authentication: str = 'password') -> dict:
+            """Save credentials/MFA to encrypted storage and 1Password. Specify the observed authentication: password, google or facebook. SSO logins never get an unused password saved to the vault."""
+            from app.core.onboarding import save_account as save
+            return safe('save_account', lambda: save(signup['setup_id'], signup['site'], authentication))
+
+        @mcp.tool()
+        def identity_provider_placeholder(provider: str, purpose: str) -> dict:
+            """Get username/password/otp for a previously verified Google or Facebook account when its OAuth sign-in asks. Credentials are restricted to that identity provider's origin."""
+            def request():
+                from app.core.models import Check, PersonaSetup
+                from app.core.onboarding import binding
+                setup = PersonaSetup.query.get(id=signup['setup_id'])
+                site = {'google': 'gmail', 'facebook': 'facebook'}.get(provider)
+                if site not in setup.completed or purpose not in {'username', 'password', 'otp'}:
+                    raise Unavailable('Choose a verified identity provider and credential purpose')
+                task = Check.query.filter(account__persona=setup.persona, pattern='signup:' + site).first()
+                field = binding(task).get('fields', {}).get(purpose) if task else None
+                if not field:
+                    raise Unavailable('Identity provider credential is not configured')
+                origins = ['https://accounts.google.com'] if provider == 'google' else ['https://www.facebook.com', 'https://facebook.com']
+                return broker.request(purpose, field={**field, 'origins': origins})
+            return safe('identity_provider_placeholder', request)
+
+        @mcp.tool()
+        def request_browser_email(target_id: str, selector: str, purpose: str, subject: str) -> dict:
+            """Read one Gmail Show original message from the persona's signed-in browser. Select its raw RFC822 source element. Validate sender/DKIM/recipient/freshness locally and return a single-use email_code or email_link placeholder; never the message."""
+            def retrieve():
+                from app.core.onboarding import browser_email
+                mail_context = {**context, 'target_id': target_id,
+                    'binding': {**context['binding'], 'origins': ['https://mail.google.com']}}
+                result = stagehand(mail_context, directory, 'capture', selector=selector)
+                if result.get('status') != 'captured':
+                    raise Unavailable('Open the verification email’s Show original view in Gmail')
+                value, identity = browser_email(result['private_value'], signup['setup_id'], signup['site'], broker.since, purpose, subject)
+                broker.binding['fields'][purpose] = {'source': 'browser_message', 'value': value, 'message_id': identity}
+                redaction.remember(directory, {identity: value})
+                return broker.request(purpose)
+            return safe('request_browser_email', retrieve)
 
     @mcp.tool()
     def act(instruction: str, placeholders: dict[str, str]) -> dict:
@@ -121,12 +231,16 @@ def server(directory):
             if not destination:
                 raise Unavailable("Browser is outside approved login origins")
             values = {}
+            remembered = {}
             for name, placeholder in placeholders.items():
-                if broker.purpose(placeholder) == "email_link":
+                purpose = broker.purpose(placeholder)
+                if purpose == "email_link":
                     raise Unavailable("Use follow_verification_link for an email link")
                 values[name] = broker.consume(placeholder, destination)
+                key = 'fact:' + placeholder if purpose.startswith('dob_') else placeholder
+                remembered[key] = values[name]
             # Encrypted local state lets later HTML/screenshot observations mask reflected values.
-            redaction.remember(directory, {placeholders[k]: v for k, v in values.items()})
+            redaction.remember(directory, remembered)
             return stagehand(context, directory, "act", instruction=instruction, variables=values)
 
         return safe("act", execute)

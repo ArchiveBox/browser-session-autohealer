@@ -12,6 +12,10 @@ class Unavailable(Exception):
     """Only fixed, application-authored messages may cross the MCP boundary."""
 
 
+class Pending(Unavailable):
+    """A requested message has not arrived yet; no credential action failed."""
+
+
 def config_path():
     return Path(settings.APP_CONFIG_DIR) / "recovery.json"
 
@@ -67,6 +71,7 @@ def audit(directory, action, status, source=""):
 
 
 CONNECTORS = {
+    'cloaked': ('Cloaked', 'Researcher phone numbers, inboxes & verification', '◉'),
     'twocaptcha': ('2Captcha', 'Automatic CAPTCHA solving in supported browsers', '✓'),
     'onepassword': ('1Password', 'Passwords & authenticator codes', '◈'),
     'imap': ('Email', 'Verification codes & sign-in links', '✉'),
@@ -124,7 +129,7 @@ def effective_binding(cfg, account, check=None):
     for scope in chain:
         binding.update(cfg.get('integration_scopes', {}).get(scope, {}).get('login', {}))
     for key in CONNECTORS:
-        if key == 'twocaptcha':
+        if key in {'twocaptcha', 'cloaked'}:
             continue  # Browser setup, not a password or verification-message source.
         options, _ = effective_integration(cfg, key, chain, account)
         if not options['enabled']:

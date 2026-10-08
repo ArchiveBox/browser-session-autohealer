@@ -1,0 +1,36 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{asset('persona_setup.css')}}">
+<div class="heading"><div><div class="eyebrow">Researcher onboarding</div><h1>{{setup.persona.name if setup else 'Set up a persona'}}</h1><p>Provide what you know. Choose the accounts. Resume where you left off.</p></div><a class="btn" href="{{'/personas/'+setup.persona.id|string if setup else '/?view=personas'}}">{{'View persona' if setup else 'All personas'}}</a></div>
+{% if error %}<div class="error" role="alert">{{error}}</div>{% endif %}
+{% if setup %}<section class="panel setup-progress"><div class="panel-body"><strong>{{setup.status|replace('_',' ')|capitalize}}</strong>{% if setup.run %} · <a href="/runs/{{setup.run.id}}">Open browser session and AI conversation →</a>{% endif %}
+<ol>{% for site in progress_sites %}<li>{{sites[site].title}} — {{'Verified' if site in setup.completed else 'Pending'}}</li>{% endfor %}</ol>
+{% if contacts %}<p><strong>Cloaked contacts created</strong> · {{contacts.phone}} · {{contacts.email}}{% if contacts.inbox_url %} · <a href="{{contacts.inbox_url}}" target="_blank" rel="noopener">Open researcher inbox ↗</a>{% endif %}</p>{% endif %}
+{% if setup.status=='needs_human' %}{% if setup.run and setup.run.issues %}<p role="status">{{setup.run.issues[-1].message}}</p>{% endif %}<p>Resolve the blocker, update any missing facts below, then resume the same account.</p>
+{% if setup.run.runtime.get('interactive_ready') %}<p role="status">{{setup.run.runtime.get('human_reason','')}}</p>{% endif %}
+{% if manual_task and not active %}<form method="post" action="/personas/{{setup.persona.id}}/browser"><input type="hidden" name="check_id" value="{{manual_task.id}}"><button class="btn">Open browser to complete the blocked step</button></form>{% endif %}
+{% endif %}
+{% if manual_credentials.get('password') and (setup.status=='needs_human' or (active and setup.run.runtime.get('interactive'))) %}<details><summary>Credentials for manual signup</summary><p>Use the planned address and password so setup can save the correct credentials.</p><p>{{manual_credentials.get('email','')}}</p><label for="manual-password">Generated password</label><input id="manual-password" type="password" readonly autocomplete="off" value="{{manual_credentials.password}}"><button type="button" id="copy-manual-password" class="btn">Copy password</button></details>{% endif %}
+{% if active and setup.run.runtime.get('interactive') %}<p><a class="btn" href="/runs/{{setup.run.id}}/browser">Open manual browser →</a> Finish the required step, then click Continue account setup in that panel.</p>{% endif %}
+{% if active and not setup.run.runtime.get('interactive_ready') %}<p>The agent is working. <a href="">Refresh progress</a></p>{% endif %}</div></section>{% endif %}
+<form method="post" id="persona-setup" class="setup-layout">
+<input type="hidden" name="key" value="{{request_key}}"><input type="hidden" name="sites" id="setup-sites" value="{{values.get('sites','')}}">
+<script type="application/json" id="setup-builder-data">{{builder|tojson}}</script>
+<fieldset class="panel" {{'disabled' if active else ''}}><div class="panel-body"><h2>Basic details</h2><p class="muted">Every field is optional. If a site requires something missing, setup will ask for it.</p>
+{% if not setup %}<div class="field"><label for="persona-name">Persona label</label><input id="persona-name" name="name" maxlength="160" value="{{values.get('name','')}}" placeholder="Researcher"></div>{% endif %}
+<div class="setup-facts">{% for key,label,autocomplete in facts %}<div class="field"><label for="fact-{{key}}">{{label}}</label><input id="fact-{{key}}" name="{{key}}" autocomplete="{{autocomplete}}" type="{{'date' if key=='dob' else 'email' if key=='email' else 'tel' if key=='phone' else 'text'}}" maxlength="300" value="{{values.get(key,'')}}"></div>{% endfor %}</div>
+<h2>Contacts and credentials</h2>
+<label class="setup-option"><input type="checkbox" name="create_gmail" {{'checked' if values.get('create_gmail')=='on' else ''}}> Create a new Gmail account</label><small>Otherwise connect the existing Gmail address above.</small>
+<label class="setup-option"><input type="checkbox" name="cloaked_phone" {{'checked' if values.get('cloaked_phone')=='on' else ''}}> Create a phone number with Cloaked</label>
+<label class="setup-option"><input type="checkbox" name="cloaked_email" {{'checked' if values.get('cloaked_email')=='on' else ''}}> Create an email alias with Cloaked</label><small>Created first, used as Gmail recovery email. Later accounts use Gmail.</small>
+<label class="setup-option"><input type="checkbox" name="save_onepassword" {{'checked' if values.get('save_onepassword')=='on' else ''}}> Save passwords, authenticator keys and recovery codes in 1Password</label>
+<p><a href="/integrations?{{'scope=persona:'+setup.persona.id|string+'&' if setup else ''}}integration=cloaked">Configure connected integrations →</a></p>
+</div></fieldset>
+<fieldset class="panel" {{'disabled' if active else ''}}><div class="panel-body"><h2>Account chain</h2><p class="muted">Add a suggested site. Each badge adds a short instruction for the agent.</p>
+<div class="setup-badges">{% for key,spec in sites.items() %}<button type="button" class="btn" data-add-site="{{key}}">+ {{'gmail.com' if key=='gmail' else spec.domain}}</button>{% endfor %}</div>
+<ol id="setup-chain" aria-label="Selected account order"></ol>
+<details><summary>Instructions sent to the agent</summary><pre id="setup-prompt"></pre></details>
+<div class="field"><label for="setup-provider">Browser connection</label><select id="setup-provider" name="provider">{% for provider in providers %}<option value="{{provider.id}}" {{'selected' if values.get('provider', setup.run.provider.id|string if setup and setup.run else '')==provider.id|string else ''}}>{{provider.name}}</option>{% endfor %}</select></div>
+<p class="muted">Sessions and credentials stay with this persona. Each account must pass a fresh access check before setup continues.</p>
+<div class="actions"><button name="action" value="save" class="btn">Save details</button>{% if not setup or setup.status!='complete' %}<button name="action" value="start" class="primary">{{'Resume account setup' if setup and setup.run else 'Start account setup'}}</button>{% endif %}</div>
+</div></fieldset></form><script defer src="{{asset('persona_setup.js')}}"></script>
+{% endblock %}

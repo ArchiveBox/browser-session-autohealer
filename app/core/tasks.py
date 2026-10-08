@@ -16,10 +16,19 @@ PATTERNS = {
 
 
 def fix_binding(task):
+    if task.pattern.startswith('signup:'):
+        from .onboarding import binding
+        return binding(task)
     cfg = load()
     binding = effective_binding(cfg, task.account, task)
     if not binding.get('fields') and task.source_task:
         binding = effective_binding(cfg, task.account, task.source_task)
+    from .onboarding import saved_login
+    saved = saved_login(task.account)
+    if saved:
+        binding['fields'] = {**saved['fields'], **binding.get('fields', {})}
+        binding.setdefault('origins', saved['origins'])
+        binding['authentication'] = saved['authentication']
     binding.setdefault('start_url', task.url)
     binding.setdefault('origins', [origin(binding['start_url'])])
     return binding
@@ -96,7 +105,8 @@ def verify_fix(run, fix, state):
         .join('target__account__site', 'target__provider'))
     for rule in rules:
         task = rule.target
-        if task.mode != 'check' or not task.enabled or task.provider.id != run.provider.id or task.account.persona.id != run.persona.id or task.account.site.domain != run.scope:
+        signup_verification = task.pattern.startswith('signup-verify:') and run.runtime.get('recovery', {}).get('binding', {}).get('signup')
+        if task.mode != 'check' or (not task.enabled and not signup_verification) or task.provider.id != run.provider.id or task.account.persona.id != run.persona.id or task.account.site.domain != run.scope:
             continue
         plan = services.check_plan(task)
         run.plan = [*run.plan, plan]

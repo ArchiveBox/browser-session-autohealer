@@ -1,0 +1,16 @@
+.setup-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.setup-layout fieldset{min-width:0;margin:0;padding:0}
+.setup-facts{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.setup-option{display:flex;align-items:center;gap:10px;margin:16px 0 6px}
+.setup-option input{width:auto}
+.setup-badges{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.setup-badges button{border-radius:20px}
+.setup-badges button:disabled{opacity:.45;cursor:default}
+#setup-chain{padding-left:24px}
+#setup-chain li{padding:12px 0;border-bottom:1px solid var(--border,#ddd)}
+#setup-chain button{float:right}
+#setup-chain p{font-size:13px;color:var(--muted,#657080);margin:8px 0}
+#setup-prompt{white-space:pre-wrap;font-size:12px}
+.setup-progress{margin-bottom:24px}
+@media(max-width:900px){.setup-layout{grid-template-columns:1fr}}
+@media(max-width:480px){.setup-facts{grid-template-columns:1fr}}

@@ -204,6 +204,22 @@ class Run(postgres.Model):
 
 
 @postgres.register_model
+class PersonaSetup(postgres.Model):
+    key: Field[UUID] = types.UUIDField()
+    persona: Field[Persona] = types.ForeignKeyField(Persona, on_delete=postgres.RESTRICT)
+    private_data: Field[str] = types.TextField()
+    status: Field[str] = types.TextField(default='draft')
+    completed: Field[list] = types.JSONField(default=[], required=False)
+    run: Field[Run | None] = types.ForeignKeyField(Run, on_delete=postgres.RESTRICT,
+        allow_null=True, default=None, required=False)
+    created_at: Field[datetime] = types.DateTimeField(create_now=True)
+    model_options = postgres.Options(constraints=[
+        postgres.UniqueConstraint(fields=['key'], name='persona_setup_key'),
+        postgres.UniqueConstraint(fields=['persona'], name='persona_setup_persona'),
+    ], indexes=[postgres.Index(fields=['run'], name='persona_setup_run_idx')])
+
+
+@postgres.register_model
 class PersonaProviderConfig(postgres.Model):
     persona: Field[Persona] = types.ForeignKeyField(Persona, on_delete=postgres.RESTRICT)
     provider: Field[Provider] = types.ForeignKeyField(Provider, on_delete=postgres.RESTRICT)

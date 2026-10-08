@@ -95,6 +95,7 @@ def ensure_server():
     work = private_dir(root / "work")
     (work / ".ignore").write_text("*\n")
     from .recovery.runner import agent as recovery_agent
+    from .recovery.runner import signup_agent
 
     cfg = {
         "$schema": "https://opencode.ai/config.json",
@@ -104,7 +105,7 @@ def ensure_server():
         "small_model": config()["model"],
         "default_agent": "access",
         "permission": {"*": "deny"},
-        "agent": {"access": access_agent(), "recovery": recovery_agent()},
+        "agent": {"access": access_agent(), "recovery": recovery_agent(), 'signup': signup_agent()},
     }
     env = {
         **os.environ,
