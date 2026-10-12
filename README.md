@@ -149,6 +149,19 @@ uv run plain accounts worker
 
 [Setup, credentials & configuration →](docs/development.md#run-locally)
 
+## Integrations & setup
+
+Configure connections in **Integrations**, then choose which personas, sites, and checks may use them.
+
+- **1Password** — Fill saved usernames, passwords, and authenticator codes. Requires a 1Password account, the desktop app and CLI, an unlocked vault, and CLI integration enabled in the app.
+- **Email (IMAP)** — Fill emailed verification codes and follow sign-in links without marking messages read. Requires an IMAP-enabled mailbox, its password or app password saved in 1Password, and a mail server that supplies trusted DKIM results; select the expected sender, recipient, and subject.
+- **iMessage / SMS on Mac** — Fill verification codes from Messages. Requires a Mac signed into Messages, the `imsg` CLI with Full Disk Access, and iPhone text-message forwarding for SMS; select the conversation and allowed senders.
+- **Google Voice (experimental)** — Retrieve SMS verification codes. Requires a Google Voice account, the Google Voice MCP bridge, and a dedicated signed-in browser. Authenticated message compatibility still needs verification.
+- **Cloaked** — Create email aliases and phone numbers for new personas and retrieve their verification messages. Requires a Cloaked account with the needed email/phone features; open the dedicated connection browser from Integrations and sign in, using a configured local host browser.
+- **2Captcha** — Automatically solve CAPTCHAs in supported browsers. Requires a funded 2Captcha account and API key. Enable it explicitly for cloud providers, which leave 2Captcha off by default; generic CDP connections are unsupported. See [provider-specific setup](docs/providers.md#2captcha).
+- **OpenCode, browser-use & Stagehand** — Check access and help recover sessions from plain-English instructions. Requires OpenCode, the project dependencies, and an OpenAI API key with available credit, as described above.
+- **Browser providers** — Reuse sessions in local Chrome, Browserbase, Kernel, Anchor Browser, Browserless, or an existing compatible browser. Local use requires Chrome or Docker; cloud use requires the provider's account and API key (plus a project ID for Browserbase); existing browsers need a reachable CDP endpoint. See [browser setup](docs/providers.md).
+
 
 ---
 
