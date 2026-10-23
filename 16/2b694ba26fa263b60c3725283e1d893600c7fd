@@ -1,0 +1,23 @@
+package-lock.json
+  s_10bc94d001be49::t_3e6442a7ba9dce 7,10,1733-1735
+pyproject.toml
+  s_10bc94d001be49::t_24af0a0f2e01e8 25
+uv.lock
+  s_10bc94d001be49::t_b1e972242575ae 2,65,133,177,179,181,364,371,373,667,672,674,679,685,687
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "162b694ba26fa263b60c3725283e1d893600c7fd",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
