@@ -5,7 +5,7 @@
     "@browserbasehq/stagehand": "3.7.3"
   },
   "overrides": {
-    "undici": "6.29.0",
+    "undici": "6.29.1",
     "@fastify/busboy": "3.2.2"
   }
 }
