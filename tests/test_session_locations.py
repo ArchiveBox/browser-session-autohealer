@@ -135,7 +135,7 @@ def test_fresh_country_selection_and_direct_handoff(location_api, selection):
         assert request['ips'] and all(o['source'] == 'browser' for o in request['ips'])
         # A host/upstream browser may be unable to route a preference. Supported
         # cloud providers must route it; every required country must be observed.
-        routed = task.provider.kind in {'browserbase', 'anchor', 'browserless', 'kernel'}
+        routed = task.provider.kind in {'browserbase', 'browser_use', 'anchor', 'browserless', 'kernel'}
         if selection == 'required' or routed:
             assert geo.get('country') == country, 'Direct client browser country did not match'
             assert all(o['geo'].get('country') == country for o in request['ips'])
