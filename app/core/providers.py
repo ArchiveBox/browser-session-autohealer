@@ -561,12 +561,13 @@ class Browserbase(CDPAdapter):
 
 
 from .provider_backends.anchor import Anchor
+from .provider_backends.browser_use import BrowserUse
 from .provider_backends.browserless import Browserless
 from .provider_backends.cdp import GenericCDP
 from .provider_backends.kernel import Kernel
 
 ADAPTERS = {
-    "local": Local, "browserbase": Browserbase, "cdp": GenericCDP,
+    "local": Local, "browserbase": Browserbase, "browser_use": BrowserUse, "cdp": GenericCDP,
     "kernel": Kernel, "anchor": Anchor, "browserless": Browserless,
 }
 

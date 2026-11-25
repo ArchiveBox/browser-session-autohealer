@@ -12,8 +12,8 @@
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-aa1e55?style=flat-square)](#try-it)
 [![Checks and recovery](https://img.shields.io/badge/handles-checking_%2B_healing-334155?style=flat-square)](#from-blocked-to-unblocked)
-[![Six browser adapters](https://img.shields.io/badge/integrations-6_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
-[![Six browser adapters](https://img.shields.io/badge/browsers-6_providers-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
+[![Seven browser adapters](https://img.shields.io/badge/integrations-7_adapters-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
+[![Seven browser adapters](https://img.shields.io/badge/browsers-7_providers-334155?style=flat-square)](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once)
 
 [Why it exists](#why-browser-sessions-need-maintenance) · [Screenshots](#ensure-browser-sessions-are-warm-and-ready-for-use-across-any-provider) · [Session history](#leader-election-allows-the-same-session-to-be-forked--re-used-by-many-jobs-at-once) · [Get started](#try-it)
 
@@ -36,6 +36,7 @@
 <ul>
 <li><img src="https://www.google.com/s2/favicons?domain=chromium.org&amp;sz=64" width="30" height="30" alt="Chromium" align="absmiddle"> <a href="https://www.chromium.org">Any Chrome-based browsers</a></li>
 <li><a href="https://browserbase.com"><img src="https://www.google.com/s2/favicons?domain=browserbase.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserbase</a></li>
+<li><a href="https://browser-use.com"><img src="https://www.google.com/s2/favicons?domain=browser-use.com&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browser Use Cloud</a></li>
 <li><a href="https://kernel.sh"><img src="https://www.google.com/s2/favicons?domain=kernel.sh&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Kernel</a></li>
 <li><a href="https://anchorbrowser.io"><img src="https://www.google.com/s2/favicons?domain=anchorbrowser.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Anchor Browser</a></li>
 <li><a href="https://browserless.io"><img src="https://www.google.com/s2/favicons?domain=browserless.io&amp;sz=64" width="30" height="30" alt="" align="absmiddle"> Browserless</a></li>
@@ -160,7 +161,7 @@ Configure connections in **Integrations**, then choose which personas, sites, an
 - **Cloaked** — Create email aliases and phone numbers for new personas and retrieve their verification messages. Requires a Cloaked account with the needed email/phone features; open the dedicated connection browser from Integrations and sign in, using a configured local host browser.
 - **2Captcha** — Automatically solve CAPTCHAs in supported browsers. Requires a funded 2Captcha account and API key. Enable it explicitly for cloud providers, which leave 2Captcha off by default; generic CDP connections are unsupported. See [provider-specific setup](docs/providers.md#2captcha).
 - **OpenCode, browser-use & Stagehand** — Check access and help recover sessions from plain-English instructions. Requires OpenCode, the project dependencies, and an OpenAI API key with available credit, as described above.
-- **Browser providers** — Reuse sessions in local Chrome, Browserbase, Kernel, Anchor Browser, Browserless, or an existing compatible browser. Local use requires Chrome or Docker; cloud use requires the provider's account and API key (plus a project ID for Browserbase); existing browsers need a reachable CDP endpoint. See [browser setup](docs/providers.md).
+- **Browser providers** — Reuse sessions in local Chrome, Browserbase, Browser Use Cloud, Kernel, Anchor Browser, Browserless, or an existing compatible browser. Local use requires Chrome or Docker; cloud use requires the provider's account and API key (plus a project ID for Browserbase); existing browsers need a reachable CDP endpoint. See [browser setup](docs/providers.md).
 
 
 ---

@@ -1,6 +1,6 @@
 # Browser providers
 
-Browser Session Autohealer implements six browser adapters. The registry in
+Browser Session Autohealer implements seven browser adapters. The registry in
 `app/core/providers.py` defines runtime choices; cloud and borrowed-browser
 implementations live in `app/core/provider_backends/`. The
 [manifest](../providers/manifest.json) records implementation and verification
@@ -12,12 +12,13 @@ status, rather than controlling runtime behavior.
 | --- | --- | --- |
 | Local Chrome | Fresh native profile on the host or in Docker; wait for the owned process to exit | Existing local app evidence |
 | Browserbase | Fresh cloud session; request release and confirm completion | Existing app evidence, including authenticated X access |
+| Browser Use Cloud | Fresh cloud browser; stop it and confirm its status | API lifecycle implemented; no live application acceptance recorded |
 | Generic CDP | Fresh owned browser context on an existing endpoint; dispose only that context | Hacker News, LinkedIn and X passed and checked in successfully |
 | Kernel | Fresh cloud browser; delete it and confirm deletion | Hacker News and X passed; LinkedIn passed after an automatic recovery session and fresh verification |
 | Anchor Browser | Fresh cloud session; delete it and confirm completion | Hacker News and X passed; LinkedIn access confirmed, but a corrected script error kept that session discarded |
 | Browserless.io | Fresh reconnectable cloud browser; close and confirm the endpoint is gone | Hacker News and X passed; LinkedIn access confirmed, but a cookie banner and unconfirmed shutdown kept that session discarded |
 
-These are real authenticated checks from October 4, 2026, using OpenCode and
+Recorded authenticated checks are from October 4, 2026, using OpenCode and
 browser-harness rather than scripted site fixtures. Access and session completion
 are separate results: a corrected execution error still prevents adoption.
 Browserless shutdown confirmation was subsequently fixed and verified on isolated
@@ -52,7 +53,7 @@ preserves it; **Remove saved key** removes the stored value. Environment variabl
 in provider extension uploads or run settings.
 
 Local Chrome and Docker enable 2Captcha by default when a key is configured.
-Browserbase, Kernel, Anchor, and Browserless default to **Off** because they offer
+Browserbase, Browser Use Cloud, Kernel, Anchor, and Browserless default to **Off** because they offer
 native solving. Their native settings stay unchanged unless 2Captcha is explicitly
 enabled with the provider switch. Scope permissions must also allow it. Retry count,
 retry delay, and automatic form submission inherit from shared → persona → site →
@@ -68,12 +69,14 @@ the session. The session page and session API report the resulting solver status
 | --- | --- |
 | Local Chrome / Docker | Load the unpacked extension into the isolated profile |
 | Browserbase | Upload ZIP, set `extensionId`, disable the native solver |
+| Browser Use Cloud | Upload ZIP, set `extensionIds`, disable the native solver |
 | Kernel | Upload ZIP, set `extensions`, use non-stealth mode to avoid competing solvers; select an explicit proxy if needed |
 | Anchor | Upload ZIP, set `browser.extensions`, disable the native solver |
 | Browserless | Upload through the extension API and use Chromium; accounts without this API can upload the ZIP in the dashboard and configure `twocaptcha_extension` with its name |
 | Generic CDP | Unsupported: a borrowed isolated context cannot configure a browser-wide extension |
 
 Provider extension APIs: [Browserbase](https://docs.browserbase.com/platform/browser/core-features/browser-extensions),
+[Browser Use Cloud](https://docs.browser-use.com/cloud/api-v4),
 [Kernel](https://kernel.sh/docs/browsers/extensions),
 [Anchor](https://docs.anchorbrowser.io/advanced/extensions),
 [Browserless](https://docs.browserless.io/baas/features/browser-extensions).

@@ -19,10 +19,11 @@ from .recovery import config
 
 WEBSTORE_ID = 'ifibfemgeogfhoebkmokieepdoobkbpo'
 DEFAULTS = {'retry_count': 0, 'retry_delay': 5, 'auto_submit': False}
-NATIVE_SOLVERS = {'kernel', 'browserbase', 'anchor', 'browserless'}
+NATIVE_SOLVERS = {'kernel', 'browserbase', 'browser_use', 'anchor', 'browserless'}
 SUPPORT = {
     'local': 'Automatic installation in owned host Chrome and Docker browsers.',
     'browserbase': 'Automatic upload and session extensionId configuration.',
+    'browser_use': 'Automatic upload and extensionIds configuration.',
     'kernel': 'Automatic upload. Uses non-stealth mode to prevent competing solvers; choose an explicit proxy if needed (the default stealth proxy is not used).',
     'anchor': 'Automatic upload and browser.extensions configuration.',
     'browserless': 'Chromium only. Automatic upload requires the account extension API; otherwise upload the ZIP in the provider dashboard and set twocaptcha_extension.',
@@ -200,7 +201,7 @@ def configure_browser(run):
             run.update(fields=['runtime'])
             raise
     run.runtime['twocaptcha_status'] = result
-    if result.get('status') == 'ready' and kind in ('kernel', 'browserless'):
+    if result.get('status') == 'ready' and kind in ('kernel', 'browserless', 'browser_use'):
         result['detail'] = SUPPORT[kind]
     run.update(fields=['runtime'])
     return result
